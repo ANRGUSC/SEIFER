@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="312b0598-d050-4c05-87c0-20fcb0da88e7" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/encoding_test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/encoding.go" beforeDir="false" afterPath="$PROJECT_DIR$/encoding.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="GOROOT" path="C:\Go" />
+  <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="Ben Grewell &lt;bgrewell@gmail.com&gt;" />
+      </list>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="false" />
+  </component>
+  <component name="ProjectId" id="1l7cFSzsYl8TrAUqd1m1KcQ74lm" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="DefaultGoTemplateProperty" value="Go File" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="go.import.settings.migrated" value="true" />
+    <property name="go.sdk.automatically.set" value="true" />
+    <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
+  </component>
+  <component name="RunManager" selected="Go Test.TestConvertToUTF16LEBase64String in github.com/BGrewell/go-conversions">
+    <configuration name="TestConvertToUTF16LEBase64String in github.com/BGrewell/go-conversions" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-conversions" />
+      <working_directory value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/BGrewell/go-conversions" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <pattern value="^\QTestConvertToUTF16LEBase64String\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="TestConvertToUTF16LEString in encoding_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-conversions" />
+      <working_directory value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <kind value="FILE" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/encoding_test.go" />
+      <pattern value="^\QTestConvertToUTF16LEString\E$" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Test.TestConvertToUTF16LEBase64String in github.com/BGrewell/go-conversions" />
+        <item itemvalue="Go Test.TestConvertToUTF16LEString in encoding_test.go" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="add format to string conversion" />
+    <option name="LAST_COMMIT_MESSAGE" value="add format to string conversion" />
+    <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
+  </component>
+  <component name="VgoProject">
+    <integration-enabled>true</integration-enabled>
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="660" y="536" key="#Go_Modules" timestamp="1607010233530">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state x="660" y="536" key="#Go_Modules/0.0.3440.1400@0.0.3440.1400" timestamp="1607010233530" />
+    <state x="485" y="270" key="CommitChangelistDialog2" timestamp="1606952083475">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state x="485" y="270" key="CommitChangelistDialog2/0.0.3440.1400@0.0.3440.1400" timestamp="1606952083475" />
+    <state width="1690" height="400" key="GridCell.Tab.0.bottom" timestamp="1607010949576">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="400" key="GridCell.Tab.0.bottom/0.0.3440.1400@0.0.3440.1400" timestamp="1607010949576" />
+    <state width="1690" height="400" key="GridCell.Tab.0.center" timestamp="1607010949576">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="400" key="GridCell.Tab.0.center/0.0.3440.1400@0.0.3440.1400" timestamp="1607010949576" />
+    <state width="1690" height="400" key="GridCell.Tab.0.left" timestamp="1607010949576">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="400" key="GridCell.Tab.0.left/0.0.3440.1400@0.0.3440.1400" timestamp="1607010949576" />
+    <state width="1690" height="400" key="GridCell.Tab.0.right" timestamp="1607010949576">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="400" key="GridCell.Tab.0.right/0.0.3440.1400@0.0.3440.1400" timestamp="1607010949576" />
+    <state width="1690" height="491" key="GridCell.Tab.1.bottom" timestamp="1607010539846">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="491" key="GridCell.Tab.1.bottom/0.0.3440.1400@0.0.3440.1400" timestamp="1607010539846" />
+    <state width="1690" height="491" key="GridCell.Tab.1.center" timestamp="1607010539846">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="491" key="GridCell.Tab.1.center/0.0.3440.1400@0.0.3440.1400" timestamp="1607010539846" />
+    <state width="1690" height="491" key="GridCell.Tab.1.left" timestamp="1607010539846">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="491" key="GridCell.Tab.1.left/0.0.3440.1400@0.0.3440.1400" timestamp="1607010539846" />
+    <state width="1690" height="491" key="GridCell.Tab.1.right" timestamp="1607010539846">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state width="1690" height="491" key="GridCell.Tab.1.right/0.0.3440.1400@0.0.3440.1400" timestamp="1607010539846" />
+    <state x="452" y="423" key="Vcs.Push.Dialog.v2" timestamp="1606952086797">
+      <screen x="0" y="0" width="3440" height="1400" />
+    </state>
+    <state x="452" y="423" key="Vcs.Push.Dialog.v2/0.0.3440.1400@0.0.3440.1400" timestamp="1606952086797" />
+  </component>
+</project>

@@ -1,0 +1,77 @@
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: nfs-provisioner
+spec:
+  selector:
+    matchLabels:
+      app: nfs-provisioner
+  serviceName: "nfs-provisioner"
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nfs-provisioner
+    spec:
+      serviceAccountName: nfs-provisioner
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: nfs-provisioner
+          image: ghcr.io/kubernetes-sigs/nfs-ganesha:v3.5
+          ports:
+            - name: nfs
+              containerPort: 2049
+            - name: nfs-udp
+              containerPort: 2049
+              protocol: UDP
+            - name: nlockmgr
+              containerPort: 32803
+            - name: nlockmgr-udp
+              containerPort: 32803
+              protocol: UDP
+            - name: mountd
+              containerPort: 20048
+            - name: mountd-udp
+              containerPort: 20048
+              protocol: UDP
+            - name: rquotad
+              containerPort: 875
+            - name: rquotad-udp
+              containerPort: 875
+              protocol: UDP
+            - name: rpcbind
+              containerPort: 111
+            - name: rpcbind-udp
+              containerPort: 111
+              protocol: UDP
+            - name: statd
+              containerPort: 662
+            - name: statd-udp
+              containerPort: 662
+              protocol: UDP
+          securityContext:
+            capabilities:
+              add:
+                - DAC_READ_SEARCH
+                - SYS_RESOURCE
+          args:
+            - "-provisioner=anrg.usc.edu/defer-nfs"
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: SERVICE_NAME
+              value: nfs-provisioner
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          imagePullPolicy: "IfNotPresent"
+          volumeMounts:
+            - name: nfs-volume
+              mountPath: /export
+      volumes:
+        - name: nfs-volume
+          persistentVolumeClaim:
+            claimName: dispatcher-nfs-pvc

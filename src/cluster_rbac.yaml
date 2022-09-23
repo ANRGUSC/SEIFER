@@ -1,0 +1,32 @@
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: defer-admin-account
+  namespace: default
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: defer-admin
+rules:
+  # All the groups/resources/verbs used within the golang client
+  # Eventually create more specific roles
+  - apiGroups: ["", "apps", "batch"]
+    resources: ["deployments", "jobs", "services", "endpoints", "configmaps", "nodes", "persistentvolumes", "statefulsets", "serviceaccounts"]
+    verbs: ["create", "delete", "get", "list", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: defer-admin
+subjects:
+  - kind: ServiceAccount
+    # Reference to ServiceAccount kind's `metadata.name`
+    name: defer-admin-account
+    # Reference to ServiceAccount kind's `metadata.namespace`
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: defer-admin
+  apiGroup: rbac.authorization.k8s.io

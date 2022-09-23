@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: system-init
+  labels:
+    app: system-init
+spec:
+  ttlSecondsAfterFinished: 0
+  template:
+    metadata:
+      name: system-init
+      labels:
+        app: dispatcher
+        assigned-node: dispatcher
+    spec:
+      imagePullSecrets:
+      - name: ghcr-imagepull-auth
+      restartPolicy: OnFailure
+      serviceAccountName: defer-admin-account
+      containers:
+        - name: system-info-job
+          image: ghcr.io/dat-boi-arjun/get_system_info:latest
+          env:
+            - name: DISPATCHER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          ports:
+            - containerPort: 3000
+            - containerPort: 4000
+          volumeMounts:
+            - name: dispatcher-config
+              mountPath: /config
+      volumes:
+        - name: dispatcher-config
+          emptyDir: {}
