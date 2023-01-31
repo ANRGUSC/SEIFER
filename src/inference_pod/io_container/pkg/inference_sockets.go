@@ -31,10 +31,31 @@ func RunSockets() {
 	// The program won't exit on its own
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 
-	var readSock io.ReadCloser
-	var writeSock io.WriteCloser
 	var sendPipe io.WriteCloser
 	var recvPipe io.ReadCloser
+	var readSock io.ReadCloser
+	var writeSock io.WriteCloser
+
+	// Connect to inference runtime first, then sockets second
+	pipePath := "/io"
+	sendPath := filepath.Join(pipePath, "/to_inference")
+	recvPath := filepath.Join(pipePath, "/from_inference")
+
+	fmt.Println("Creating pipes")
+	sendPipe = pipesutil.CreatePipe(sendPath, "send")
+	recvPipe = pipesutil.CreatePipe(recvPath, "recv")
+
+	toInferenceTransferInfo := sockets.TransferDetails{
+		From: sockets.TransferType{
+			Medium: "socket",
+			// No connect info to fill
+		},
+		To: sockets.TransferType{
+			Medium:      "pipe",
+			ConnectInfo: sendPath,
+		},
+	}
+
 	// Create all connections concurrently
 	fmt.Println("Connecting to sockets")
 	cCli, cServ := make(chan *net.Conn, 1), make(chan *net.Conn, 1)
@@ -53,24 +74,6 @@ func RunSockets() {
 	}
 	fmt.Println("Got connections from channel")
 
-	pipePath := "/io"
-	sendPath := filepath.Join(pipePath, "/to_inference")
-	recvPath := filepath.Join(pipePath, "/from_inference")
-	// Connect to inference runtime
-	fmt.Println("Creating pipes")
-	sendPipe = pipesutil.CreatePipe(sendPath, "send")
-	recvPipe = pipesutil.CreatePipe(recvPath, "recv")
-
-	toInferenceTransferInfo := sockets.TransferDetails{
-		From: sockets.TransferType{
-			Medium: "socket",
-			// No connect info to fill
-		},
-		To: sockets.TransferType{
-			Medium:      "pipe",
-			ConnectInfo: sendPath,
-		},
-	}
 	fmt.Println("Launching transfer to inference")
 	// Incoming socket data -> inference
 	go sockets.Transfer(ctx, &readSock, &sendPipe, toInferenceTransferInfo)
@@ -88,6 +91,26 @@ func RunSockets() {
 	fmt.Println("Launching transfer from inference")
 	// Outgoing inference data -> next node
 	go sockets.Transfer(ctx, &recvPipe, &writeSock, fromInferenceTransferInfo)
+
+	// Test code
+	/*
+		go func() {
+			for i := 0; i < 1000; i++ {
+				err := ioutil.WriteOutput(&sendPipe, []byte("golangdata"))
+				handle(err)
+				fmt.Printf("Sent data %d\n", i)
+			}
+		}()
+
+		go func() {
+			for i := 0; i < 1000; i++ {
+				data, err := ioutil.ReadInput(&recvPipe)
+				handle(err)
+				fmt.Printf("Received data %d: %s\n", i, string(data))
+			}
+		}()
+
+	*/
 
 	fmt.Println("Waiting for context to finish")
 	select {

@@ -1,0 +1,25 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: node-minikube-m02
+  labels:
+    app: defer
+spec:
+  ports:
+    - name: inference-input
+      port: 8080
+      protocol: TCP
+    - name: iperf-server-port
+      port: 5201
+      protocol: UDP
+#    - name: system-info-input
+#      port: 3000
+#      protocol: TCP
+#    - name: iperf-orchestrator
+#      port: 4000
+#      protocol: TCP
+#    - name: finished-inference
+#      port: 8080
+#      protocol: TCP
+  selector:
+    assigned-node: minikube-m02

@@ -22,14 +22,13 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 	fmt.Println(string(out))
 	handle(err)*/
 
-	// Each partition needs to have its own deployment (because the pod spec is different for each partition)
 	var replicas int32 = 1
 	dispatcherDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "dispatcher-deployment",
 		},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas, // Each partitionDeployment only has 1 pod
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":           "dispatcher",
@@ -45,7 +44,8 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
-						{
+						// Don't need partitioning container while testing
+						/*{
 							Name:  "dispatcher-partitioner",
 							Image: "ghcr.io/dat-boi-arjun/dispatcher_partitioner:latest",
 							Env: []corev1.EnvVar{
@@ -55,28 +55,32 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
+								// Don't use NFS while testing
 								// To place the partitions and dispatcher next node
 								{
 									Name:      "nfs-volume",
 									MountPath: "/nfs",
 								},
+								// This configmap isn't relevant while testing
 								// Get node bandwidth/memory info
 								{
 									Name:      "dispatcher-config",
 									MountPath: "/dispatcher_config",
 								},
 							},
-						},
+						},*/
 						{
 							Name:  "dispatcher-deploy-pods",
 							Image: "ghcr.io/dat-boi-arjun/deploy_pods:latest",
-							VolumeMounts: []corev1.VolumeMount{
-								// To read the partitions directory and find the node names
-								{
-									Name:      "nfs-volume",
-									MountPath: "/nfs",
-								},
-							},
+							// Don't use NFS while testing
+							/*
+								VolumeMounts: []corev1.VolumeMount{
+									// To read the partitions directory and find the node names
+									{
+										Name:      "nfs-volume",
+										MountPath: "/nfs",
+									},
+								},*/
 						},
 					},
 					Containers: []corev1.Container{
@@ -85,11 +89,12 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 							Name:  "dispatch-inference-data",
 							Image: "ghcr.io/dat-boi-arjun/dispatcher_inference_io:latest",
 							VolumeMounts: []corev1.VolumeMount{
+								// Don't use NFS while testing
 								// Read dispatcher next node
-								{
+								/*{
 									Name:      "nfs-volume",
 									MountPath: "/nfs",
-								},
+								},*/
 								// Get data from process-inference-input container over FIFO
 								{
 									Name:      "pipe-communication",
@@ -127,8 +132,9 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 						},
 					},
 					Volumes: []corev1.Volume{
+						// Don't use w/o NFS
 						// Dispatcher Config info (node_info.json)
-						{
+						/*{
 							Name: "dispatcher-config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -137,16 +143,17 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 									},
 								},
 							},
-						},
+						},*/
+						// Don't use NFS while testing
 						// NFS Server which holds all config data
-						{
+						/*{
 							Name: "nfs-volume",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "nfs",
 								},
 							},
-						},
+						},*/
 						// Communication between Golang sockets and Python processing runtime
 						{
 							Name: "pipe-communication",

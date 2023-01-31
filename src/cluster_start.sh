@@ -6,9 +6,9 @@ kubectl delete deployments,jobs --all
 #kubectl delete pvc nfs
 #kubectl delete pv --all
 #kubectl delete services -l app=defer
-kubectl apply -f /Users/arjun/Desktop/GitHub/dist_edge_inference_DNN/src/imagepullsecrets.yaml
-kubectl apply -f /Users/arjun/Desktop/GitHub/dist_edge_inference_DNN/src/cluster_rbac.yaml
-sh /Users/arjun/Desktop/GitHub/dist_edge_inference_DNN/src/nfs/config_nfs_support.sh
+kubectl apply -f /Users/arjun/Desktop/GitHub/SEIFER/src/imagepullsecrets.yaml
+kubectl apply -f /Users/arjun/Desktop/GitHub/SEIFER/src/cluster_rbac.yaml
+sh /Users/arjun/Desktop/GitHub/SEIFER/src/nfs/config_nfs_support.sh
 
 # Init job
-kubectl apply -f /Users/arjun/Desktop/GitHub/dist_edge_inference_DNN/src/system_init_job.yaml
+kubectl apply -f /Users/arjun/Desktop/GitHub/SEIFER/src/system_init_job.yaml

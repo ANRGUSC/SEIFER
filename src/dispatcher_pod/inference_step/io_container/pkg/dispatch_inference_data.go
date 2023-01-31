@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -22,8 +21,11 @@ func handle(e error) {
 }
 
 func RunSockets() {
-	var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_next_node.txt")
-	sendTo := string(firstNode)
+	// NFS isn't active for testing
+	/*var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_next_node.txt")
+	sendTo := string(firstNode)*/
+	// Designated first node for testing
+	sendTo := "minikube-m02"
 
 	// Let all processes know when we exit, so we can stop all pods
 	ctx := context.Background()
@@ -39,23 +41,7 @@ func RunSockets() {
 	var readPipe io.ReadCloser
 	var writePipe io.WriteCloser
 
-	// Needs to be concurrent so other nodes can connect to the server too
-	cCli, cServ := make(chan *net.Conn, 1), make(chan *net.Conn, 1)
-	// Create all connections concurrently
-	go socketsutil.CreateClientSocket(cCli, sendTo)
-
-	// Connection from the last compute node
-	go socketsutil.CreateServerSocket(cServ)
-
-	for i := 0; i < 2; i++ {
-		select {
-		case data := <-cCli:
-			writeSock = *data
-		case data := <-cServ:
-			inferenceReader = *data
-		}
-	}
-
+	// Connect to processing runtime first before sockets
 	path := "/io"
 	sendPath := filepath.Join(path, "/to_processing")
 	recvPath := filepath.Join(path, "/from_processing")
@@ -74,6 +60,24 @@ func RunSockets() {
 			ConnectInfo: sendTo,
 		},
 	}
+
+	// Needs to be concurrent so other nodes can connect to the server too
+	cCli, cServ := make(chan *net.Conn, 1), make(chan *net.Conn, 1)
+	// Create all connections concurrently
+	go socketsutil.CreateClientSocket(cCli, sendTo)
+
+	// Connection from the last compute node
+	go socketsutil.CreateServerSocket(cServ)
+
+	for i := 0; i < 2; i++ {
+		select {
+		case data := <-cCli:
+			writeSock = *data
+		case data := <-cServ:
+			inferenceReader = *data
+		}
+	}
+
 	fmt.Println("Launching transfer to first compute node")
 	// Incoming data -> first compute node
 	go socketsutil.Transfer(ctx, &readPipe, &writeSock, fromProcessingTransferInfo)

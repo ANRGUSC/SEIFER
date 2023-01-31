@@ -16,6 +16,8 @@ spec:
       imagePullSecrets:
       - name: ghcr-imagepull-auth
       restartPolicy: OnFailure
+      # While testing, always schedule dispatcher on first node
+      nodeName: minikube
       serviceAccountName: defer-admin-account
       containers:
         - name: system-info-job
