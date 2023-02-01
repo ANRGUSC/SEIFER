@@ -76,9 +76,9 @@ def process_input(input_path: str, q: Queue):
             print("Connection closed, recreating recv pipe")
             recv_pipe = create_pipe(input_path, "recv")
         finally:
-            arr_input = zfpy.decompress_numpy(lz4.frame.decompress(binary_data))
+            #arr_input = zfpy.decompress_numpy(lz4.frame.decompress(binary_data))
             print("Decompressed input")
-            q.put(arr_input)
+            q.put(binary_data)
             print("Sent input through queue")
 
 
@@ -89,10 +89,10 @@ def process_output(output_path: str, q: Queue):
     while True:
         output_arr = q.get()
         print("Got data from queue")
-        binary_output = lz4.frame.compress(zfpy.compress_numpy(output_arr))
+        #binary_output = lz4.frame.compress(zfpy.compress_numpy(output_arr))
         print("Compressed data")
         try:
-            pipe_send(send_pipe, binary_output)
+            pipe_send(send_pipe, output_arr)
             print("Sent data thru pipe")
         except IOError:
             print("Connection closed, recreating send pipe")

@@ -78,6 +78,8 @@ func DeployInferencePods(ctx context.Context) {
 								// Python inference container (same image for all pods)
 								Name:  "inference-runtime",
 								Image: "ghcr.io/dat-boi-arjun/inference_runtime:latest",
+								// TODO manually pull inference runtime images to each node for now
+								ImagePullPolicy: corev1.PullIfNotPresent,
 								Env: []corev1.EnvVar{
 									{
 										Name:  "NODE",

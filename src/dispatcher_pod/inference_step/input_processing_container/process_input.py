@@ -46,7 +46,9 @@ def print_finished_inference(q: Queue):
 def put_inference_input(q: Queue):
     print("Putting input into system")
     for i in range(100):
-        q.put("Test system input")
+        test = "Test system input"
+        test_bytes = test.encode('utf-8')
+        q.put(test_bytes)
 
 
 print("Running process-inference-input")
