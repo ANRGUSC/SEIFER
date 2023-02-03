@@ -2,7 +2,7 @@ from io_pipes import process_input, process_output
 from queue import Queue
 from threading import Thread
 import numpy as np
-#from keras.applications.resnet import preprocess_input, decode_predictions
+from keras.applications.resnet import preprocess_input, decode_predictions
 
 FIFO_PATH = "/io"
 FIFO_INPUT_PATH = f"{FIFO_PATH}/to_processing"
@@ -11,10 +11,11 @@ FIFO_OUTPUT_PATH = f"{FIFO_PATH}/from_processing"
 input_queue = Queue(10 ** 5)
 finished_queue = Queue(10 ** 5)
 
+input_shape = (224, 224, 3)
 # Random pixels, just to get a sample output
-# x = np.random.random_sample((224, 224))
-# x = np.expand_dims(x, axis=0)
-# x = preprocess_input(x)
+x = np.random.random_sample(input_shape).astype(np.float32)
+dims_exp = np.expand_dims(x, axis=0)
+arr = preprocess_input(dims_exp)
 
 
 def run():
@@ -39,16 +40,13 @@ def run():
 def print_finished_inference(q: Queue):
     print("Getting output from system")
     for i in range(100):
-        #print(decode_predictions(q.get(), top=1)[0])
-        print("Got: ", q.get())
+        print(decode_predictions(q.get(block=True), top=1)[0])
 
 
 def put_inference_input(q: Queue):
     print("Putting input into system")
     for i in range(100):
-        test = "Test system input"
-        test_bytes = test.encode('utf-8')
-        q.put(test_bytes)
+        q.put(arr)
 
 
 print("Running process-inference-input")

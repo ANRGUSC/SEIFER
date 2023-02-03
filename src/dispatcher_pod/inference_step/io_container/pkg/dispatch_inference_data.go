@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -21,11 +22,10 @@ func handle(e error) {
 }
 
 func RunSockets() {
-	// NFS isn't active for testing
-	/*var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_next_node.txt")
-	sendTo := string(firstNode)*/
-	// Designated first node for testing
-	sendTo := "minikube-m02"
+	var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_next_node.txt")
+	sendTo := string(firstNode)
+
+	//sendTo := "minikube-m02"
 
 	// Let all processes know when we exit, so we can stop all pods
 	ctx := context.Background()

@@ -3,6 +3,9 @@ package deploy_pods
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,8 +28,7 @@ func DeployInferencePods(ctx context.Context) {
 	clientset, err := kubernetes.NewForConfig(config)
 	handle(err)
 
-	// While testing, don't use NFS
-	/*dir := "/nfs/model_config/partitions/"
+	dir := "/nfs/model_config/partitions/"
 	entries, _ := os.ReadDir(dir)
 	nodes := make([]string, 0)
 	for _, e := range entries {
@@ -34,22 +36,22 @@ func DeployInferencePods(ctx context.Context) {
 			nodes = append(nodes, e.Name())
 		}
 	}
-	fmt.Println(nodes)*/
+	fmt.Println(nodes)
 	// Dispatcher is on the "minikube" node, other nodes are compute nodes
-	nodes := []string{"minikube-m02", "minikube-m03", "minikube-m04", "minikube-m05"}
+	//nodes := []string{"minikube-m02", "minikube-m03", "minikube-m04", "minikube-m05"}
 
 	deploymentClient := clientset.AppsV1().Deployments(corev1.NamespaceDefault)
-	for i, n := range nodes {
-		/*fp := filepath.Join(dir, n, "next_node.txt")
+	for _, n := range nodes {
+		fp := filepath.Join(dir, n, "next_node.txt")
 		nextNode, err := ioutil.ReadFile(fp)
-		handle(err)*/
+		handle(err)
 
-		var nextNode string
+		/*var nextNode string
 		if n == "minikube-m05" {
 			nextNode = "dispatcher"
 		} else {
 			nextNode = nodes[i+1]
-		}
+		}*/
 
 		// Each partition needs to have its own deployment (because the pod spec is different for each partition)
 		var replicas int32 = 1
@@ -78,8 +80,8 @@ func DeployInferencePods(ctx context.Context) {
 								// Python inference container (same image for all pods)
 								Name:  "inference-runtime",
 								Image: "ghcr.io/dat-boi-arjun/inference_runtime:latest",
-								// TODO manually pull inference runtime images to each node for now
-								ImagePullPolicy: corev1.PullIfNotPresent,
+								// TODO do we need to manually pull inference runtime images to each node?
+								ImagePullPolicy: corev1.PullAlways,
 								Env: []corev1.EnvVar{
 									{
 										Name:  "NODE",
@@ -87,11 +89,10 @@ func DeployInferencePods(ctx context.Context) {
 									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
-									// For testing no NFS
-									/*{
+									{
 										Name:      "nfs-volume",
 										MountPath: "/nfs",
-									},*/
+									},
 									{
 										Name:      "pipe-communication",
 										MountPath: "/io",
@@ -127,16 +128,15 @@ func DeployInferencePods(ctx context.Context) {
 							},
 						},
 						Volumes: []corev1.Volume{
-							// For testing don't use NFS
 							// NFS Server which holds all config data
-							/*{
+							{
 								Name: "nfs-volume",
 								VolumeSource: corev1.VolumeSource{
 									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 										ClaimName: "nfs",
 									},
 								},
-							},*/
+							},
 							// Communication between Golang sockets and Python inference runtime
 							{
 								Name: "pipe-communication",

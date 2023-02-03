@@ -16,7 +16,8 @@ import (
 func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispatcherName string) {
 	fmt.Println("Initializing dispatcher")
 	deploymentClient := clientset.AppsV1().Deployments(metav1.NamespaceDefault)
-	// For now re-use existing configmap
+
+	// Use existing configmap
 	/*cmd := exec.Command("/bin/sh", "/root/dispatcher_configmap.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
@@ -44,8 +45,7 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 				},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
-						// Don't need partitioning container while testing
-						/*{
+						{
 							Name:  "dispatcher-partitioner",
 							Image: "ghcr.io/dat-boi-arjun/dispatcher_partitioner:latest",
 							Env: []corev1.EnvVar{
@@ -55,32 +55,28 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 								},
 							},
 							VolumeMounts: []corev1.VolumeMount{
-								// Don't use NFS while testing
 								// To place the partitions and dispatcher next node
 								{
 									Name:      "nfs-volume",
 									MountPath: "/nfs",
 								},
-								// This configmap isn't relevant while testing
 								// Get node bandwidth/memory info
 								{
 									Name:      "dispatcher-config",
 									MountPath: "/dispatcher_config",
 								},
 							},
-						},*/
+						},
 						{
 							Name:  "dispatcher-deploy-pods",
 							Image: "ghcr.io/dat-boi-arjun/deploy_pods:latest",
-							// Don't use NFS while testing
-							/*
-								VolumeMounts: []corev1.VolumeMount{
-									// To read the partitions directory and find the node names
-									{
-										Name:      "nfs-volume",
-										MountPath: "/nfs",
-									},
-								},*/
+							VolumeMounts: []corev1.VolumeMount{
+								// To read the partitions directory and find the node names
+								{
+									Name:      "nfs-volume",
+									MountPath: "/nfs",
+								},
+							},
 						},
 					},
 					Containers: []corev1.Container{
@@ -89,12 +85,11 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 							Name:  "dispatch-inference-data",
 							Image: "ghcr.io/dat-boi-arjun/dispatcher_inference_io:latest",
 							VolumeMounts: []corev1.VolumeMount{
-								// Don't use NFS while testing
 								// Read dispatcher next node
-								/*{
+								{
 									Name:      "nfs-volume",
 									MountPath: "/nfs",
-								},*/
+								},
 								// Get data from process-inference-input container over FIFO
 								{
 									Name:      "pipe-communication",
@@ -132,9 +127,8 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 						},
 					},
 					Volumes: []corev1.Volume{
-						// Don't use w/o NFS
 						// Dispatcher Config info (node_info.json)
-						/*{
+						{
 							Name: "dispatcher-config",
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -143,17 +137,16 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 									},
 								},
 							},
-						},*/
-						// Don't use NFS while testing
+						},
 						// NFS Server which holds all config data
-						/*{
+						{
 							Name: "nfs-volume",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: "nfs",
 								},
 							},
-						},*/
+						},
 						// Communication between Golang sockets and Python processing runtime
 						{
 							Name: "pipe-communication",
@@ -180,7 +173,7 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 		handle(err)
 	}
 
-	// For now use the existing NFS
+	// Use existing cluster NFS
 	//startNFS(ctx, clientset, dispatcherName)
 }
 

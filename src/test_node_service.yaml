@@ -1,7 +1,7 @@
 kind: Service
 apiVersion: v1
 metadata:
-  name: node-minikube-m02
+  name: node-minikube
   labels:
     app: defer
 spec:
@@ -22,4 +22,4 @@ spec:
 #      port: 8080
 #      protocol: TCP
   selector:
-    assigned-node: minikube-m02
+    assigned-node: minikube

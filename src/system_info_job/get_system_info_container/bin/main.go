@@ -42,6 +42,7 @@ func main() {
 		}
 	}
 
+	// Use existing node bandwidth information
 	/*system_info.LaunchJobs(ctx, clientset, otherNodes)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -49,7 +50,6 @@ func main() {
 	go system_info.ReceiveData(&wg, NumNodes)
 	wg.Wait()*/
 
-	// Only test dispatcher functionality
 	system_info.InitDispatcher(ctx, clientset, dispatcherName)
 
 	// Stop any residual processes
