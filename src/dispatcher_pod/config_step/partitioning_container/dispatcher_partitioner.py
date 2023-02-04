@@ -1,6 +1,3 @@
-# Use existing data in NFS for now
-'''
-import os
 import pathlib
 
 from partitioner import Partitioner
@@ -25,8 +22,7 @@ for e in node_info["bandwidths"]:
     u = e["Start"]
     v = e["End"]
     bw = e["Bandwidth"]
-    inv_bandwidth = 1 / bw
-    communication_graph.add_edge(u, v, weight=inv_bandwidth)
+    communication_graph.add_edge(u, v, weight=bw)
 
 # We take the smallest RAM of all the nodes and make that the capacity, since the nodes should be homogeneous
 node_capacities = [node_info["node_capacity"]] * node_info["num_nodes"]
@@ -36,15 +32,14 @@ model = ResNet50(weights="imagenet")
 
 partitioner = Partitioner(model)
 print("Partitioned model")
-partitions = partitioner.create_model_partitions(node_capacities, communication_graph)
+node_arrangement, partitions = partitioner.construct_models
 print("Created model partitions")
-node_path = list(partitions)
-for n in range(len(node_path)):
-    node = node_path[n]
+for n in range(len(node_arrangement)):
+    node = node_arrangement[n]
     # The directory is the name of the node
     # The files in this directory is enough to create the inference pod
     directory = f"{model_save_dir}/partitions/{node}"
-    partition = partitions[node]
+    partition = partitions[n]
     # Convert to TF Lite model
     converter = tf.lite.TFLiteConverter.from_keras_model(partition)
     # Quantize the model w/ float16 - big memory reduction w/ minimal accuracy loss
@@ -63,19 +58,19 @@ for n in range(len(node_path)):
     print("Saved partition to %s" % str(tflite_model_file))
 
     # For now this file only has the next node (easiest way to make this info visible to the golang container)
-    # Can't use "x" because this file already exists for some reason
     with open(f'{directory}/next_node.txt', 'x') as f:
         # n is the last node
-        if n+1 == len(node_path):
-            # Need to include an if condition to check for this in k8s
+        if n+1 == len(node_arrangement):
             next_node = "dispatcher"
         else:
-            next_node = node_path[n+1]
+            next_node = node_arrangement[n+1]
         f.write(next_node)
 
 # File contains the next node of the dispatcher_pod
 with open(f"{inference_pods_dir}/dispatcher_next_node.txt", 'x') as f:
-    f.write(node_path[0])
-'''
+    # The dispatcher is scheduled to any random node, so we have to hope that it won't have a high latency
+    # connection to the first compute node
+    f.write(node_arrangement[0])
+
 
 

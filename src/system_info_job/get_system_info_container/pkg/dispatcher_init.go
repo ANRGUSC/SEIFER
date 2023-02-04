@@ -158,7 +158,8 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 					RestartPolicy:      corev1.RestartPolicyAlways,
 					DNSPolicy:          "ClusterFirst",
 					ServiceAccountName: "defer-admin-account",
-					NodeName:           dispatcherName,
+					// Dispatcher gets scheduled to wherever the system-init-job was scheduled
+					NodeName: dispatcherName,
 				},
 			},
 		},

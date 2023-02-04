@@ -1,9 +1,11 @@
-import networkx as nx
-from tensorflow import keras
 import tensorflow as tf
-from typing import Tuple, List, Dict
-
-from graph_utils import GraphUtils
+import keras
+from typing import List, Tuple, Dict
+import networkx as nx
+from bidict import bidict
+import tsplib95
+import subprocess
+import math
 
 
 class Partitioner:
@@ -15,8 +17,6 @@ class Partitioner:
         self.layer_level = {}
         # The layers at a certain depth/level, where the index of the array is the level
         self.levels = []
-
-        self.graph_utils = GraphUtils()
 
     def get_previous(self, layer_name):
         inbound = self.model.get_layer(layer_name).inbound_nodes[0].inbound_layers
@@ -47,49 +47,26 @@ class Partitioner:
         to_next = layer(output)
         return to_next
 
-    # Constructs model using shape of start layer as the input (doesn't include start layer in the model)
-    def _construct_model(self, start, end, part_name="part_begin"):
+    def construct_model(self, start, end, part_name="part_begin"):
         inpt = keras.Input(tensor=self.model.get_layer(start).output, name=part_name)
         output = self.traverse(end, start, part_name, inpt)
         part = keras.Model(inputs=self.model.get_layer(start).output, outputs=output)
         return part
 
-    def construct_models(self, model: keras.Model, num_nodes: int, num_classes: int, node_capacity: int, G_c: nx.Graph):
-        partitioner = Partitioner(model)
-        part_pts = partitioner.find_partitions()
-        transfers = partitioner.find_partition_transfer_size(part_pts)[0]
+    def create_model_partitions(self, node_capacities: List[int], communication_graph: nx.Graph):
+        # node_partition_names = self.partition_model(node_capacities, communication_graph)
+        # Mock partitions for now
+        node_partition_names = {"minikube": ("input_1", "conv2_block3_add"),
+                                "minikube-m02": ("conv2_block3_out", "conv4_block1_add"),
+                                "minikube-m03": ("conv4_block1_out", "conv4_block5_add"),
+                                "minikube-m04": ("conv4_block5_out", "predictions")}
+        model_partitions = {}
+        for k in node_partition_names:
+            start_layer, end_layer = node_partition_names[k]
+            model = self.construct_model(start_layer, end_layer)
+            model_partitions[k] = model
 
-        partition_mems = partitioner.find_partition_memory(part_pts)
-        partitions, node_arrangement = self.graph_utils.partition_and_place(num_nodes, node_capacity, G_c,
-                                            num_classes, part_pts, transfers, partition_mems)
-
-        constructed_models = []
-        i = 0
-
-        for p in partitions:
-            # Model input
-            if p[0] == 0:
-                start_layer = part_pts[0]
-            else:
-                # _construct_model() uses an exclusive start layer but inclusive end layer
-                start_layer = part_pts[p[0] - 1]
-
-            # Model output
-            if p[1] == len(part_pts):
-                end_layer = part_pts[-1]
-            else:
-                # End layer of partition in graph is exclusive, so need to subtract one from end layer index
-                # to use with _construct_model(), which has inclusive end layer
-                end_layer = part_pts[p[1] - 1]
-
-            print(f"Partition {i}: ({start_layer}, {end_layer})")
-
-            model = self._construct_model(start_layer, end_layer, part_name=f"part_{i}")
-            constructed_models.append(model)
-            print("Partition constructed")
-            i += 1
-
-        return node_arrangement, constructed_models
+        return model_partitions
 
     # A recursive function used by longest_path. See below
     # link for details
@@ -313,7 +290,6 @@ class Partitioner:
 
     def find_partition_memory(self, partition_points):
         part_mems = []
-        # Each index represents the memory between that part pt and the next one
         for i in range(1, len(partition_points)):
             # Going backwards along layers within partition to find total memory usage
             start = self.layer_level[partition_points[i]]
@@ -324,29 +300,161 @@ class Partitioner:
                     layer_mem = self.keras_layer_memory(self.model.get_layer(l), 1)
                     mem += layer_mem
             part_mems.append(mem)
-        # Nothing used after last partition pt, which is output layer
-        part_mems.append(0)
         return part_mems
 
     # Returns transfer size of partition in Mbits
     def find_partition_transfer_size(self, partition_points) -> Tuple[List[int], Dict[str, int]]:
         transfer_sizes = []
         transfer_size_dict = {}
-        for i in range(len(partition_points)):
+        for i in range(1, len(partition_points)):
             num_outbound = len(self.model.get_layer(partition_points[i]).outbound_nodes)
 
             # Iterate through all elements of shape tuple except first one (which is batch size)
             output_size = 1
             for s in self.model.get_layer(partition_points[i]).get_output_at(0).get_shape()[1:]:
                 output_size *= s
-            # Compression ratio is ~1.44 (according to https://www.researchgate.net/publication/264417607_Fixed-Rate_Compressed_Floating-Point_Arrays)
+            # Compression ratio is ~1.44 (according to
+            # https://www.researchgate.net/publication/264417607_Fixed-Rate_Compressed_Floating-Point_Arrays)
             zfp_comp_ratio = 1.44
             # Assuming all elements are floats, each float uses 8 bytes
             output_size_bytes = (output_size * 8) / zfp_comp_ratio
-            output_size_mbits = (output_size_bytes * 8) / (1024 ** 2)
+            output_size_bits = (output_size_bytes * 8) / (1024 ** 2)
             # All outputs of the layer are the same size, the total size will be (output size * num_output_nodes)
-            transfer_size = num_outbound * output_size_mbits
+            transfer_size = num_outbound * output_size_bits
             transfer_size_dict[partition_points[i]] = transfer_size
             transfer_sizes.append(transfer_size)
 
         return transfer_sizes, transfer_size_dict
+
+    # For each node, finds the next partition point with the smallest transfer size
+    def partition_model(self, node_capacities: List[int], communication_graph: nx.Graph) -> Dict[str, Tuple[str, str]]:
+        parts = self.find_partitions()
+        part_mems = self.find_partition_memory(parts)
+        part_transfer_size, transfer_size_dict = self.find_partition_transfer_size(parts)
+
+        min_cap_per_node = node_capacities[0] / len(node_capacities)
+        models = []
+        prev_partition_point = 0
+        for c in range(len(node_capacities)):
+            # We've partitioned the model in less physical nodes than we have
+            if prev_partition_point > len(part_mems) - 1:
+                break
+            p = prev_partition_point
+            min_data_size = part_transfer_size[p]
+            min_data_size_ind = p
+            while sum(part_mems[prev_partition_point: p]) < node_capacities[c]:
+                # divide node capacity by number of nodes, and make sure that each node has at least that amount of
+                # capacity, to make sure we fit the model into the nodes
+                if part_transfer_size[p] < min_data_size and sum(part_mems[prev_partition_point: p]) > min_cap_per_node:
+                    min_data_size = part_transfer_size[p]
+                    min_data_size_ind = p
+                # End of partition points
+                if p == len(part_mems) - 1:
+                    break
+                p += 1
+            min_data_size_partition_pt = parts[min_data_size_ind + 1]
+            models.append((parts[prev_partition_point + 1], min_data_size_partition_pt))
+
+            # The "+1" is so that the next partition starts at the layer after the previous partition
+            prev_partition_point = min_data_size_ind + 1
+
+        # The first partition should start from the input layer
+        models[0] = (parts[0], models[0][1])
+        # The last partition should end with the output layer
+        models[-1] = (models[-1][0], parts[-1])
+
+        # If the last partition fits into the node, we know we've partitioned successfully
+        if sum(part_mems[parts.index(models[-1][0]):]) <= node_capacities[-1]:
+            print("Model successfully partitioned")
+        else:
+            raise MemoryError("Model not partitioned successfully")
+
+        btsp = BTSP(communication_graph)
+        node_tour = btsp.btsp_binary_search()
+
+        # At the end, we need to "shift" the partitions across all remaining nodes in the BTSP if we have extra
+        # nodes, to see if we can come up with a lower bottleneck value (find the lowest bottleneck of (transfer size
+        # / bandwidth)
+        tries_for_shifting = len(node_tour) - len(models) + 1
+        best_try = 0
+        smallest_latency = math.inf
+        for i in range(tries_for_shifting):
+            bottleneck_latency = 0
+            for j in range(len(models) - 1):
+                transfer_layer = models[j][1]
+                transfer_size = transfer_size_dict[transfer_layer]
+                # Inv bandwidth = 1 / bandwidth
+                inv_bandwidth = communication_graph[node_tour[j + i]][node_tour[(j + i) + 1]]['weight']
+                curr_latency = transfer_size * inv_bandwidth
+                if curr_latency > bottleneck_latency:
+                    bottleneck_latency = curr_latency
+            if bottleneck_latency < smallest_latency:
+                best_try = i
+                smallest_latency = bottleneck_latency
+
+        partition_per_node = {}
+        for k in range(len(models)):
+            partition_per_node[node_tour[k + best_try]] = models[k]
+
+        return partition_per_node
+
+
+class BTSP:
+    def __init__(self, g: nx.Graph):
+        self.graph = g
+        nodes = list(g)
+        # Bidict mapping index in distance matrix row/column to name of node
+        self.name_to_idx = bidict({nodes[i]: i for i in range(len(nodes))})
+        self.num_nodes = len(nodes)
+
+    def order_edge_weights(self):
+        edges = sorted(self.graph.edges().data('weight'), key=lambda t: t[2])
+        return edges
+
+    # Zero/One Cost Matrix as used in http://www.cs.unb.ca/tech-reports/honours-theses/John.LaRusic-4997.pdf
+    def build_cost_matrix(self, E, b: int):
+        matrix = [[0] * self.num_nodes] * self.num_nodes
+        for e in E:
+            w = 1
+            if e[2] <= b:
+                w = 0
+            matrix[self.name_to_idx[e[0]]][self.name_to_idx[e[1]]] = w
+
+        return matrix
+
+    # Returns the length of a tour given by an ordered list of vertices
+    def get_tour_length(self, t: List[int], dist: List[List]):
+        length = 0
+        for i in range(len(t) - 1):
+            length += dist[t[i]][t[i + 1]]
+        return length
+
+    def btsp_binary_search(self) -> List[str]:
+        E = self.order_edge_weights()
+        low = 0
+        high = len(E)
+        best_tour = []
+        while low < high:
+            median = ((high - low) // 2) + low
+            med_cost = E[median][2]
+            D = self.build_cost_matrix(E, med_cost)
+            problem = tsplib95.models.StandardProblem(
+                edge_weights=D, edge_weight_format="LOWER_DIAG_ROW",
+                edge_weight_type="EXPLICIT", dimension=len(D[0]), type="TSP")
+            problem.save('./problem.tsp')
+            subprocess.run("concorde ./problem.tsp".split(" "))
+            with open("./problem.sol", "r") as f:
+                solution_file = f.readlines()
+            str_tour = ' '.join(solution_file[1].split()).split(" ")
+            tour = []
+            for s in str_tour:
+                tour.append(int(s))
+            length = self.get_tour_length(tour, D)
+            if length == 0:
+                high = median
+                best_tour = tour
+            else:
+                low = median + 1
+
+        tour_names = [self.name_to_idx.inverse[t] for t in best_tour]
+        return tour_names
