@@ -46,8 +46,5 @@ def inference(in_q: Queue, out_q: Queue):
         print("Got prediction", list(prediction))
         out_q.put(prediction)
 
-        # print("Got from input queue: ", str(inpt))
-        # out_q.put(inpt)
-
 
 run()
