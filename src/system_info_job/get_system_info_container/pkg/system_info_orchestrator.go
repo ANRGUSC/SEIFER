@@ -1,7 +1,6 @@
 package system_info
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
@@ -9,14 +8,13 @@ import (
 	"sync"
 
 	"github.com/Dat-Boi-Arjun/DEFER/io_util"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	OrchestratorPort = 4000
 )
 
-func Run(ctx context.Context, mainWg *sync.WaitGroup, clientset *kubernetes.Clientset, nodes []string) {
+func Run(mainWg *sync.WaitGroup, nodes []string) {
 	fmt.Println("Orchestrating connections")
 	server, err := net.Listen("tcp", net.JoinHostPort("", strconv.Itoa(OrchestratorPort)))
 	handle(err)

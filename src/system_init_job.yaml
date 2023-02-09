@@ -11,19 +11,16 @@ spec:
       name: system-init
       labels:
         app: dispatcher
-        assigned-node: dispatcher
     spec:
       imagePullSecrets:
       - name: ghcr-imagepull-auth
       restartPolicy: OnFailure
-      # Schedule dispatcher on this node because all others have partitions
-      nodeName: minikube-m05
       serviceAccountName: defer-admin-account
       containers:
         - name: system-info-job
           image: ghcr.io/dat-boi-arjun/get_system_info:latest
           env:
-            - name: DISPATCHER_NAME
+            - name: INIT_NODE
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName

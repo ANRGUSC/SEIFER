@@ -1,9 +1,9 @@
 kind: PersistentVolumeClaim
 apiVersion: v1
 metadata:
-  name: dispatcher-nfs-pvc
+  name: nfs-backing-pvc
 spec:
-  storageClassName: dispatcher-nfs-storage
+  storageClassName: nfs-backing-storage
   accessModes:
     - ReadWriteOnce
   resources:

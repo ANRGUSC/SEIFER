@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/Dat-Boi-Arjun/DEFER/system_info_job/get_system_info_container/pkg"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,7 +20,7 @@ func handle(e error) {
 
 func main() {
 	fmt.Println("Running get_system_info main")
-	var dispatcherName = os.Getenv("DISPATCHER_NAME")
+	var initNode = os.Getenv("INIT_NODE")
 	ctx, cancel := context.WithCancel(context.Background())
 	config, err := rest.InClusterConfig()
 	handle(err)
@@ -35,22 +36,19 @@ func main() {
 	NumNodes := len(list.Items) - 1
 	fmt.Printf("Num compute nodes: %d\n", NumNodes)
 
-	otherNodes := make([]string, 0, NumNodes)
+	nodes := make([]string, 0, NumNodes)
 	for _, item := range list.Items {
-		if item.Name != dispatcherName {
-			otherNodes = append(otherNodes, item.Name)
-		}
+		nodes = append(nodes, item.Name)
 	}
 
-	// Use existing node bandwidth information
-	/*system_info.LaunchJobs(ctx, clientset, otherNodes)
+	system_info.LaunchJobs(ctx, clientset, nodes)
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go system_info.Run(ctx, &wg, clientset, otherNodes)
+	go system_info.Run(&wg, nodes)
 	go system_info.ReceiveData(&wg, NumNodes)
-	wg.Wait()*/
+	wg.Wait()
 
-	system_info.InitDispatcher(ctx, clientset, dispatcherName)
+	system_info.DispatcherInitJob(ctx, clientset, initNode)
 
 	// Stop any residual processes
 	cancel()

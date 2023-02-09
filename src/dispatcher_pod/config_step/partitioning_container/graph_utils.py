@@ -213,7 +213,7 @@ class GraphUtils:
         partitions_dag = nx.DiGraph()
         for i in range(len(partitions)):
             for j in range(i + 1, len(partitions) + 1):
-                mem = sum(partition_mems[i:j - 1])
+                mem = sum(partition_mems[i:j-1])
                 # Partition has to fit into node
                 if mem < node_capacity:
                     node_name = f"{i}-{j}"
@@ -275,12 +275,14 @@ class GraphUtils:
                 min_cost = cost
                 min_path = path
 
-        chosen_transfer_sizes = []
-        for p in range(len(min_path) - 1):
-            ts = G[min_path[p]][min_path[p + 1]]['weight']
+        # The dispatcher "partition" transfer size always has to be the first
+        chosen_transfer_sizes = [transfer_sizes[0]]
+        for p in range(len(min_path)-1):
+            ts = G[min_path[p]][min_path[p+1]]['weight']
             chosen_transfer_sizes.append(ts)
 
-        chosen_partitions = []
+        # The dispatcher "partition" always has to be the first
+        chosen_partitions = [(0, 0)]
         for m in min_path:
             chosen_partitions.append(G.nodes()[m]['partition'])
 
@@ -292,9 +294,11 @@ class GraphUtils:
 
         G_p, transfer_sizes = self.create_partition_graph(node_capacity, partitions, transfers, partition_mems)
         Q, S, transfer_size_weights = self.partition(G_p, transfer_sizes, num_nodes, num_classes)
-        if len(Q) == 0:
-            raise MemoryError("Can't partition with specified number of nodes and capacity")
+        # Q only has the dispatcher
         if len(Q) == 1:
+            raise MemoryError("Can't partition with specified number of nodes and capacity")
+        # Q only has the dispatcher and one partition
+        if len(Q) == 2:
             raise NotImplementedError("Only one partition necessary")
 
         G_c = comm_graph.copy()

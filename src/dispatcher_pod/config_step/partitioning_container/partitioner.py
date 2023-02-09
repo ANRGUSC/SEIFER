@@ -1,7 +1,7 @@
 import networkx as nx
 from tensorflow import keras
 import tensorflow as tf
-from typing import Tuple, List, Dict
+from typing import List
 
 from graph_utils import GraphUtils
 
@@ -57,22 +57,23 @@ class Partitioner:
     def construct_models(self, model: keras.Model, num_nodes: int, num_classes: int, node_capacity: int, G_c: nx.Graph):
         partitioner = Partitioner(model)
         part_pts = partitioner.find_partitions()
-        transfers = partitioner.find_partition_transfer_size(part_pts)[0]
+        transfers = partitioner.find_partition_transfer_size(part_pts)
 
         partition_mems = partitioner.find_partition_memory(part_pts)
-        partitions, node_arrangement = self.graph_utils.partition_and_place(num_nodes, node_capacity, G_c,
-                                            num_classes, part_pts, transfers, partition_mems)
+        partitions, node_arrangement = self.graph_utils.partition_and_place(num_nodes, node_capacity, G_c, num_classes,
+                                                                            part_pts, transfers, partition_mems)
 
         constructed_models = []
         i = 0
 
-        for p in partitions:
+        # Ignore the dispatcher "partition"
+        for p in partitions[1:]:
             # Model input
             if p[0] == 0:
                 start_layer = part_pts[0]
             else:
                 # _construct_model() uses an exclusive start layer but inclusive end layer
-                start_layer = part_pts[p[0] - 1]
+                start_layer = part_pts[p[0]-1]
 
             # Model output
             if p[1] == len(part_pts):
@@ -80,7 +81,7 @@ class Partitioner:
             else:
                 # End layer of partition in graph is exclusive, so need to subtract one from end layer index
                 # to use with _construct_model(), which has inclusive end layer
-                end_layer = part_pts[p[1] - 1]
+                end_layer = part_pts[p[1]-1]
 
             print(f"Partition {i}: ({start_layer}, {end_layer})")
 
@@ -329,9 +330,23 @@ class Partitioner:
         return part_mems
 
     # Returns transfer size of partition in Mbits
-    def find_partition_transfer_size(self, partition_points) -> Tuple[List[int], Dict[str, int]]:
+    def find_partition_transfer_size(self, partition_points) -> List[int]:
         transfer_sizes = []
-        transfer_size_dict = {}
+        input_size = 1
+        # Iterate through all elements of shape tuple except first one (which is batch size)
+        for s in self.model.input.get_shape()[1:]:
+            input_size *= s
+        # Compression ratio is ~1.44 (according to
+        # https://www.researchgate.net/publication/264417607_Fixed-Rate_Compressed_Floating-Point_Arrays)
+        zfp_comp_ratio = 1.44
+        # input_size gives us number of bits, need to convert to bytes
+        input_size_bytes = (input_size * 8) / zfp_comp_ratio
+        # Assuming all elements are floats, each float uses 8 bytes
+        input_size_mbits = (input_size_bytes * 8) / (1024 ** 2)
+
+        # Put input size as first element of transfer size array
+        transfer_sizes.append(input_size_mbits)
+
         for i in range(len(partition_points)):
             num_outbound = len(self.model.get_layer(partition_points[i]).outbound_nodes)
 
@@ -339,14 +354,12 @@ class Partitioner:
             output_size = 1
             for s in self.model.get_layer(partition_points[i]).get_output_at(0).get_shape()[1:]:
                 output_size *= s
-            # Compression ratio is ~1.44 (according to https://www.researchgate.net/publication/264417607_Fixed-Rate_Compressed_Floating-Point_Arrays)
-            zfp_comp_ratio = 1.44
+
             # Assuming all elements are floats, each float uses 8 bytes
             output_size_bytes = (output_size * 8) / zfp_comp_ratio
             output_size_mbits = (output_size_bytes * 8) / (1024 ** 2)
             # All outputs of the layer are the same size, the total size will be (output size * num_output_nodes)
             transfer_size = num_outbound * output_size_mbits
-            transfer_size_dict[partition_points[i]] = transfer_size
             transfer_sizes.append(transfer_size)
 
-        return transfer_sizes, transfer_size_dict
+        return transfer_sizes

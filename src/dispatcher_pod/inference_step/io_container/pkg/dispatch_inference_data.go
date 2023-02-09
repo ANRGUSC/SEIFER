@@ -22,10 +22,8 @@ func handle(e error) {
 }
 
 func RunSockets() {
-	var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_next_node.txt")
+	var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_config/dispatcher_next_node.txt")
 	sendTo := string(firstNode)
-
-	//sendTo := "minikube-m02"
 
 	// Let all processes know when we exit, so we can stop all pods
 	ctx := context.Background()

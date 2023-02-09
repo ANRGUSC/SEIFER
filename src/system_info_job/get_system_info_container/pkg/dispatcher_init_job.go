@@ -3,8 +3,10 @@ package system_info
 import (
 	"context"
 	"fmt"
+	"os/exec"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -13,47 +15,40 @@ import (
 	"k8s.io/utils/net"
 )
 
-func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispatcherName string) {
+func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, initNode string) {
 	fmt.Println("Initializing dispatcher")
-	deploymentClient := clientset.AppsV1().Deployments(metav1.NamespaceDefault)
+	jobClient := clientset.BatchV1().Jobs(corev1.NamespaceDefault)
+	var terminateAfter int32 = 0
 
 	// Use existing configmap
-	/*cmd := exec.Command("/bin/sh", "/root/dispatcher_configmap.sh")
+	cmd := exec.Command("/bin/sh", "/root/dispatcher_configmap.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
-	handle(err)*/
+	handle(err)
 
-	var replicas int32 = 1
-	dispatcherDeployment := &appsv1.Deployment{
+	// We schedule this job to whichever node we want, since it'll finish before inference starts
+	jobName := "dispatcher-init-job"
+	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "dispatcher-deployment",
 		},
-		Spec: appsv1.DeploymentSpec{
-			Replicas: &replicas,
+		Spec: batchv1.JobSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":           "dispatcher",
-					"assigned-node": "dispatcher",
+					"app": "dispatcher",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":           "dispatcher",
-						"assigned-node": "dispatcher",
+						"app": "dispatcher",
 					},
 				},
 				Spec: corev1.PodSpec{
-					InitContainers: []corev1.Container{
+					Containers: []corev1.Container{
 						{
 							Name:  "dispatcher-partitioner",
 							Image: "ghcr.io/dat-boi-arjun/dispatcher_partitioner:latest",
-							Env: []corev1.EnvVar{
-								{
-									Name:  "DISPATCHER_NAME",
-									Value: dispatcherName,
-								},
-							},
 							VolumeMounts: []corev1.VolumeMount{
 								// To place the partitions and dispatcher next node
 								{
@@ -75,48 +70,6 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 								{
 									Name:      "nfs-volume",
 									MountPath: "/nfs",
-								},
-							},
-						},
-					},
-					Containers: []corev1.Container{
-						{
-							// Python inference container (same image for all pods)
-							Name:  "dispatch-inference-data",
-							Image: "ghcr.io/dat-boi-arjun/dispatcher_inference_io:latest",
-							VolumeMounts: []corev1.VolumeMount{
-								// Read dispatcher next node
-								{
-									Name:      "nfs-volume",
-									MountPath: "/nfs",
-								},
-								// Get data from process-inference-input container over FIFO
-								{
-									Name:      "pipe-communication",
-									MountPath: "/io",
-								},
-							},
-							// Finished inference from last compute node
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 8080,
-								},
-							},
-						},
-						{
-							// Process external inference input
-							Name:  "process-inference-input",
-							Image: "ghcr.io/dat-boi-arjun/process_inference_input:latest",
-							VolumeMounts: []corev1.VolumeMount{
-								{
-									Name:      "pipe-communication",
-									MountPath: "/io",
-								},
-							},
-							// Input from external source
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 3000,
 								},
 							},
 						},
@@ -158,28 +111,30 @@ func InitDispatcher(ctx context.Context, clientset *kubernetes.Clientset, dispat
 					RestartPolicy:      corev1.RestartPolicyAlways,
 					DNSPolicy:          "ClusterFirst",
 					ServiceAccountName: "defer-admin-account",
-					// Dispatcher gets scheduled to wherever the system-init-job was scheduled
-					NodeName: dispatcherName,
 				},
 			},
+			TTLSecondsAfterFinished: &terminateAfter,
 		},
 	}
 
-	// Create deployment
-	_, err := deploymentClient.Create(ctx, dispatcherDeployment, metav1.CreateOptions{})
+	// Create Dispatcher Init Job
+	_, err = jobClient.Create(ctx, jobSpec, metav1.CreateOptions{})
 	if err != nil && errors.IsAlreadyExists(err) {
-		err = deploymentClient.Delete(ctx, "dispatcher-deployment", metav1.DeleteOptions{})
+		deletePods := metav1.DeletionPropagation("Background")
+		err = jobClient.Delete(ctx, jobName, metav1.DeleteOptions{PropagationPolicy: &deletePods})
 		handle(err)
-		_, err = deploymentClient.Create(ctx, dispatcherDeployment, metav1.CreateOptions{})
+		_, err = jobClient.Create(ctx, jobSpec, metav1.CreateOptions{})
+		handle(err)
+	} else {
 		handle(err)
 	}
 
-	// Use existing cluster NFS
-	//startNFS(ctx, clientset, dispatcherName)
+	// Start the NFS Server
+	startNFS(ctx, clientset, initNode)
 }
 
-func startNFS(ctx context.Context, clientset *kubernetes.Clientset, dispatcherName string) {
-	createDispatcherPV(ctx, clientset, dispatcherName)
+func startNFS(ctx context.Context, clientset *kubernetes.Clientset, initNode string) {
+	createNFSBackingPV(ctx, clientset, initNode)
 	ssClient := clientset.AppsV1().StatefulSets(corev1.NamespaceDefault)
 	var replicas int32 = 1
 	var termination int64 = 10
@@ -306,7 +261,7 @@ func startNFS(ctx context.Context, clientset *kubernetes.Clientset, dispatcherNa
 							Name: "nfs-volume",
 							VolumeSource: corev1.VolumeSource{
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "dispatcher-nfs-pvc",
+									ClaimName: "nfs-backing-pvc",
 								},
 							},
 						},
@@ -322,14 +277,16 @@ func startNFS(ctx context.Context, clientset *kubernetes.Clientset, dispatcherNa
 	}
 }
 
-func createDispatcherPV(ctx context.Context, clientset *kubernetes.Clientset, dispatcherName string) {
-	fmt.Println("Creating dispatcher PV")
+// For a Local path PV, need to specify a node to place it on, so we just place it on the same node that the
+// system init job ran on since we know that's a healthy node
+func createNFSBackingPV(ctx context.Context, clientset *kubernetes.Clientset, initNode string) {
+	fmt.Println("Creating NFS-backing PV")
 	pvClient := clientset.CoreV1().PersistentVolumes()
 	fs := corev1.PersistentVolumeFilesystem
 
 	pvSpec := &corev1.PersistentVolume{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "dispatcher-nfs-pv",
+			Name: "nfs-backing-pv",
 		},
 		Spec: corev1.PersistentVolumeSpec{
 			Capacity: map[corev1.ResourceName]resource.Quantity{
@@ -340,11 +297,11 @@ func createDispatcherPV(ctx context.Context, clientset *kubernetes.Clientset, di
 				corev1.ReadWriteOnce,
 			},
 			PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimDelete,
-			StorageClassName:              "dispatcher-nfs-storage",
+			StorageClassName:              "nfs-backing-storage",
 			PersistentVolumeSource: corev1.PersistentVolumeSource{
 				Local: &corev1.LocalVolumeSource{
 					// The /var path is where the ext4 disk partition is located on the minikube nodes
-					Path: "/var/dispatcher_pv",
+					Path: "/var/nfs_backing_pv",
 				},
 			},
 			NodeAffinity: &corev1.VolumeNodeAffinity{
@@ -356,7 +313,7 @@ func createDispatcherPV(ctx context.Context, clientset *kubernetes.Clientset, di
 									// This will be the node name
 									Key:      "kubernetes.io/hostname",
 									Operator: "In",
-									Values:   []string{dispatcherName},
+									Values:   []string{initNode},
 								},
 							},
 						},
