@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Dat-Boi-Arjun/DEFER/system_info_job/get_system_info_container/pkg"
+	"github.com/Dat-Boi-Arjun/DEFER/system_init_job/get_system_info_container/pkg"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -33,7 +33,8 @@ func main() {
 	handle(err)
 
 	// Number of compute nodes
-	NumNodes := len(list.Items) - 1
+	// Before, would exclude the system init job node from the compute node list
+	NumNodes := len(list.Items)
 	fmt.Printf("Num compute nodes: %d\n", NumNodes)
 
 	nodes := make([]string, 0, NumNodes)

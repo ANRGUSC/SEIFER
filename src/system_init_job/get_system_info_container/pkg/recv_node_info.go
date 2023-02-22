@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	sockets "github.com/Dat-Boi-Arjun/DEFER/io_util"
-	systeminfo "github.com/Dat-Boi-Arjun/DEFER/system_info_job/get_node_bandwidths_container/pkg"
+	systeminfo "github.com/Dat-Boi-Arjun/DEFER/system_init_job/get_node_bandwidths_container/pkg"
 )
 
 const (

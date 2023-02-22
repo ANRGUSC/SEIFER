@@ -64,7 +64,8 @@ func orchestrateIperfConns(nodes []string, connectionToNodes map[string][]string
 			conn := *nodeConns[node]
 			var writer io.WriteCloser = conn
 			fmt.Printf("Telling %s to run job on %s\n", node, otherNode)
-			io_util.WriteOutput(&writer, []byte(otherNode))
+			err := io_util.WriteOutput(&writer, []byte(otherNode))
+			handle(err)
 			// Receive acknowledgment of iperf test completion
 			read := make([]byte, 1)
 			var reader io.Reader = conn

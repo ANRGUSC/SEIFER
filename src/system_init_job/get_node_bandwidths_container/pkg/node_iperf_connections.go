@@ -3,6 +3,7 @@ package node_bandwidths
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 
 	sockets "github.com/Dat-Boi-Arjun/DEFER/io_util"
 	"github.com/pbnjay/memory"
@@ -124,6 +126,10 @@ func orchestrateIPerfJobs(ctx context.Context, nodeName string, otherNodes []str
 	fmt.Println("Connecting to orchestrator")
 	// Dial to the orchestrator on the dispatcher server
 	connection, err := net.Dial(ServerType, net.JoinHostPort(DispatcherHost, strconv.Itoa(OrchestratorPort)))
+	for errors.Is(err, syscall.ECONNREFUSED) {
+		fmt.Println("Connection refused, retrying")
+		connection, err = net.Dial(ServerType, net.JoinHostPort(DispatcherHost, strconv.Itoa(OrchestratorPort)))
+	}
 	handle(err)
 	var wr io.WriteCloser = connection
 	fmt.Println("Writing node name")

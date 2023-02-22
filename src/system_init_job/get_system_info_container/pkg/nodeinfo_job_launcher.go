@@ -109,7 +109,9 @@ func createDispatcherService(ctx context.Context, clientset *kubernetes.Clientse
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"assigned-node": "dispatcher",
+				// Match w/ all pods that are doing some dispatcher-related functionality
+				// System init, inference pod deployment, dispatching inference data
+				"type": "dispatcher",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -167,7 +169,9 @@ func createServices(ctx context.Context, clientset *kubernetes.Clientset, nodes 
 				},
 			},
 			Spec: corev1.ServiceSpec{
-				Selector: map[string]string{"assigned-node": node},
+				Selector: map[string]string{
+					"assigned-node": node,
+				},
 				Ports: []corev1.ServicePort{
 					{
 						Name:     "inference-input",

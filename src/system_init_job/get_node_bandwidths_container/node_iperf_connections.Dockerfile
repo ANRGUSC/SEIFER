@@ -4,7 +4,7 @@ ARG fp=/root
 FROM golang:latest as build_stage
 ARG fp
 
-COPY ./system_info_job/get_node_bandwidths_container/ ${fp}/src/system_info_job/get_node_bandwidths_container/
+COPY ./system_init_job/get_node_bandwidths_container/ ${fp}/src/system_init_job/get_node_bandwidths_container/
 COPY ./io_util/ ${fp}/src/io_util/
 
 ENV GOPATH=$fp
@@ -13,7 +13,7 @@ WORKDIR ${fp}/src
 RUN go mod init github.com/Dat-Boi-Arjun/DEFER
 RUN go get github.com/pbnjay/memory
 RUN go mod tidy
-WORKDIR ${fp}/src/system_info_job/get_node_bandwidths_container/bin/
+WORKDIR ${fp}/src/system_init_job/get_node_bandwidths_container/bin/
 RUN env GOOS=linux GOARCH=arm go build -o ${fp}/main main.go
 
 FROM ubuntu:latest as build-iperf

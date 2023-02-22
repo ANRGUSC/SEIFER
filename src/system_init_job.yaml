@@ -4,13 +4,15 @@ metadata:
   name: system-init
   labels:
     app: system-init
+    type: dispatcher
 spec:
   ttlSecondsAfterFinished: 0
   template:
     metadata:
       name: system-init
       labels:
-        app: dispatcher
+        task: init
+        type: dispatcher
     spec:
       imagePullSecrets:
       - name: ghcr-imagepull-auth

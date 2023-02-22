@@ -30,18 +30,18 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 	jobName := "dispatcher-init-job"
 	jobSpec := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "dispatcher-deployment",
+			Name: jobName,
+			Labels: map[string]string{
+				"task": "dispatcher",
+				"type": "dispatcher",
+			},
 		},
 		Spec: batchv1.JobSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": "dispatcher",
-				},
-			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": "dispatcher",
+						"task": "dispatcher",
+						"type": "dispatcher",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -108,8 +108,7 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 							},
 						},
 					},
-					RestartPolicy:      corev1.RestartPolicyAlways,
-					DNSPolicy:          "ClusterFirst",
+					RestartPolicy:      corev1.RestartPolicyOnFailure,
 					ServiceAccountName: "defer-admin-account",
 				},
 			},
