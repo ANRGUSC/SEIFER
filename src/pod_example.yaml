@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-m02
+  labels:
+    assigned-node: 5-node-cluster-m02
+spec:
+  containers:
+    - name: ubuntu1
+      image: ubuntu:latest
+      # Just spin & wait forever
+      command: [ "/bin/bash", "-c", "--" ]
+      args: [ "while true; do sleep 30; done;" ]
+    - name: ubuntu2
+      image: ubuntu:latest
+      # Just spin & wait forever
+      command: [ "/bin/bash", "-c", "--" ]
+      args: [ "while true; do sleep 30; done;" ]
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values:
+                  - 5-node-cluster-m02
+  terminationGracePeriodSeconds: 0

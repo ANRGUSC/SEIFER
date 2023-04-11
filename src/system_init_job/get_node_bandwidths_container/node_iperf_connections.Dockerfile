@@ -10,7 +10,7 @@ COPY ./io_util/ ${fp}/src/io_util/
 ENV GOPATH=$fp
 # Initialize module in src directory (root of code files)
 WORKDIR ${fp}/src
-RUN go mod init github.com/Dat-Boi-Arjun/DEFER
+RUN go mod init github.com/Dat-Boi-Arjun/SEIFER
 RUN go get github.com/pbnjay/memory
 RUN go mod tidy
 WORKDIR ${fp}/src/system_init_job/get_node_bandwidths_container/bin/
@@ -34,6 +34,13 @@ RUN apt-get clean -y
 RUN apt install iputils-ping -y
 RUN apt install iproute2 -y
 RUN apt-get install telnet
+RUN apt-get install tcpdump -y
+
+# Install kubectl
+RUN apt install curl -y && \
+      curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/arm64/kubectl && \
+      chmod +x ./kubectl && \
+      mv ./kubectl /usr/local/bin/kubectl
 
 WORKDIR $fp
 COPY --from=build_stage ${fp}/main ./

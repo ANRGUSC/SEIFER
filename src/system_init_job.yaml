@@ -20,7 +20,9 @@ spec:
       serviceAccountName: defer-admin-account
       containers:
         - name: system-info-job
-          image: ghcr.io/dat-boi-arjun/get_system_info:latest
+          image: localhost:5000/get_system_info:latest
+          # Build image to local container registry and pull
+          imagePullPolicy: Always
           env:
             - name: INIT_NODE
               valueFrom:

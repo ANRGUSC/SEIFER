@@ -20,7 +20,6 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 	jobClient := clientset.BatchV1().Jobs(corev1.NamespaceDefault)
 	var terminateAfter int32 = 0
 
-	// Use existing configmap
 	cmd := exec.Command("/bin/sh", "/root/dispatcher_configmap.sh")
 	out, err := cmd.CombinedOutput()
 	fmt.Println(string(out))
@@ -45,10 +44,12 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 					},
 				},
 				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
+					InitContainers: []corev1.Container{
 						{
 							Name:  "dispatcher-partitioner",
-							Image: "ghcr.io/dat-boi-arjun/dispatcher_partitioner:latest",
+							Image: "localhost:5000/dispatcher_partitioner:latest",
+							// Build image to local container registry and pull
+							ImagePullPolicy: corev1.PullAlways,
 							VolumeMounts: []corev1.VolumeMount{
 								// To place the partitions and dispatcher next node
 								{
@@ -62,9 +63,13 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 								},
 							},
 						},
+					},
+					Containers: []corev1.Container{
 						{
 							Name:  "dispatcher-deploy-pods",
-							Image: "ghcr.io/dat-boi-arjun/deploy_pods:latest",
+							Image: "localhost:5000/deploy_pods:latest",
+							// Build image to local container registry and pull
+							ImagePullPolicy: corev1.PullAlways,
 							VolumeMounts: []corev1.VolumeMount{
 								// To read the partitions directory and find the node names
 								{
@@ -108,7 +113,8 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 							},
 						},
 					},
-					RestartPolicy:      corev1.RestartPolicyOnFailure,
+					// To debug partitioner pod
+					RestartPolicy:      corev1.RestartPolicyNever,
 					ServiceAccountName: "defer-admin-account",
 				},
 			},
@@ -128,7 +134,6 @@ func DispatcherInitJob(ctx context.Context, clientset *kubernetes.Clientset, ini
 		handle(err)
 	}
 
-	// Start the NFS Server
 	startNFS(ctx, clientset, initNode)
 }
 
@@ -311,7 +316,7 @@ func createNFSBackingPV(ctx context.Context, clientset *kubernetes.Clientset, in
 								{
 									// This will be the node name
 									Key:      "kubernetes.io/hostname",
-									Operator: "In",
+									Operator: corev1.NodeSelectorOpIn,
 									Values:   []string{initNode},
 								},
 							},

@@ -1,0 +1,28 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: bandwidth
+spec:
+  action: bandwidth
+  mode: all
+  selector:
+    namespaces:
+      - default
+#    nodes:
+#      - 5-node-cluster-m03
+    labelSelectors:
+      assigned-node: blah
+  bandwidth:
+    rate: '1mbps'
+    limit: 20000000
+    buffer: 10000
+  direction: to
+  target:
+    mode: all
+    selector:
+      namespaces:
+        - default
+      labelSelectors:
+        assigned-node: blah
+#      nodes:
+#        - 5-node-cluster-m03

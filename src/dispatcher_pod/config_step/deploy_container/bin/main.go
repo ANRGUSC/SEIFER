@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	deploypods "github.com/Dat-Boi-Arjun/DEFER/dispatcher_pod/config_step/deploy_container/pkg"
+	deploypods "github.com/Dat-Boi-Arjun/SEIFER/dispatcher_pod/config_step/deploy_container/pkg"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )

@@ -9,7 +9,7 @@ COPY ./dispatcher_pod/config_step/deploy_container/ ${fp}/src/dispatcher_pod/con
 ENV GOPATH=$fp
 # Initialize module in src directory (root of code files)
 WORKDIR ${fp}/src
-RUN go mod init github.com/Dat-Boi-Arjun/DEFER
+RUN go mod init github.com/Dat-Boi-Arjun/SEIFER
 RUN go get k8s.io/api@latest
 RUN go get k8s.io/client-go@latest
 RUN go get k8s.io/apimachinery@latest

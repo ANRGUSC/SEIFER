@@ -79,7 +79,7 @@ def process_input(input_path: str, q: Queue):
             arr_input = zfpy.decompress_numpy(lz4.frame.decompress(binary_data))
             print("Decompressed input")
             q.put(arr_input)
-            print("Sent input through queue to inference")
+            print("Sent input through queue to python runtime")
 
 
 # Compresses data and sends it through FIFO

@@ -2,7 +2,7 @@ import os
 import time
 
 
-def create_pipe(path: str, mode: str) -> (int, int):
+def create_pipe(path: str, mode: str) -> int:
     options = 0
     # Open pipes as blocking on the python side
     if mode == "send":

@@ -5,3 +5,4 @@ metadata:
 provisioner: anrg.usc.edu/defer-nfs
 mountOptions:
   - vers=4.1
+reclaimPolicy: Delete

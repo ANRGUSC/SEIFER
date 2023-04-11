@@ -13,8 +13,10 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
-	sockets "github.com/Dat-Boi-Arjun/DEFER/io_util"
+	sockets "github.com/Dat-Boi-Arjun/SEIFER/io_util"
+	"github.com/Dat-Boi-Arjun/SEIFER/io_util/test_util"
 	"github.com/pbnjay/memory"
 )
 
@@ -35,7 +37,10 @@ func runServer(ctx context.Context, wg *sync.WaitGroup, numNodes int) {
 	// Run the server instance n times, then exit
 	for i := 0; i < numNodes; i++ {
 		// This server instance will exit after getting a single connection
-		args := "-s -4 -J --one-off"
+		// -B 0.0.0.0 binds the server to all incoming network interfaces
+		interIP := "0.0.0.0"
+
+		args := fmt.Sprintf("-s -B %s -4 -J --one-off", interIP)
 		fmt.Println("Started IPerf server")
 		cmd := exec.CommandContext(ctx, "iperf3", strings.Fields(args)...)
 		fmt.Printf("Command: %s\n", cmd.String())
@@ -49,10 +54,22 @@ func runServer(ctx context.Context, wg *sync.WaitGroup, numNodes int) {
 
 func startConnection(ctx context.Context, connectToNode string) float64 {
 	// DNS lookup for the service that controls the next inference pod
-	IPs, _ := net.LookupIP(fmt.Sprintf("node-%s.default.svc.cluster.local", connectToNode))
+	IPs, err := net.LookupIP(fmt.Sprintf("node-%s.default.svc.cluster.local", connectToNode))
+	// If the other pods haven't been created, the corresponding services won't have DNS records for them
+	for err != nil || len(IPs) == 0 {
+		fmt.Println(err.Error())
+		IPs, err = net.LookupIP(fmt.Sprintf("node-%s.default.svc.cluster.local", connectToNode))
+	}
 	ip := IPs[0].String()
 	timeoutSec := 15
-	args := fmt.Sprintf("-c %s -4 -J -i 0 -t 10 --connect-timeout=%d", ip, timeoutSec*1000)
+	inter, err := net.InterfaceByName("eth0")
+	handle(err)
+	addrs, err := inter.Addrs()
+	handle(err)
+	interIP := addrs[0].(*net.IPNet).IP.String()
+	fmt.Printf("eth0 interface: %s\n", interIP)
+	// Add -B eth0 to make iperf use the eth0 interface
+	args := fmt.Sprintf("-c %s -B %s -4 -J -i 0 -t 10 --connect-timeout=%d", ip, interIP, timeoutSec*1000)
 	fmt.Printf("Connecting to %s\n", ip)
 	cmd := exec.CommandContext(ctx, "iperf3", strings.Fields(args)...)
 	fmt.Printf("Command: %s\n", cmd.String())
@@ -78,17 +95,25 @@ func startConnection(ctx context.Context, connectToNode string) float64 {
 
 func RunBandwidthTasks(ctx context.Context) {
 	NodeName := os.Getenv("NODE_NAME")
+	numSystemNodes, err := strconv.Atoi(os.Getenv("NUM_NODES"))
+	handle(err)
 
 	var otherNodes []string
-	err := json.Unmarshal([]byte(os.Getenv("OTHER_NODES")), &otherNodes)
+	err = json.Unmarshal([]byte(os.Getenv("OTHER_NODES")), &otherNodes)
 	handle(err)
 	fmt.Printf("Other nodes: %s\n", strings.Join(otherNodes, ","))
-	numNodes := len(otherNodes)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go runServer(ctx, &wg, numNodes)
-	bandwidthMap := orchestrateIPerfJobs(ctx, NodeName, otherNodes)
+	// The first node will have no other nodes connecting to it,
+	// the second node will have 1 other node connecting to it, etc.
+	numServerConnections := numSystemNodes - (len(otherNodes) + 1)
+	go runServer(ctx, &wg, numServerConnections)
+	bandwidthMap := make(map[string]float64)
+	// Only fill the bandwidth map if the node actually needs to connect to other nodes
+	if len(otherNodes) > 0 {
+		bandwidthMap = orchestrateIPerfTasks(ctx, NodeName, otherNodes)
+	}
 
 	fmt.Println("Parsing data")
 	bandwidthInfo := make([]*BandwidthInfo, 0, len(bandwidthMap))
@@ -120,26 +145,31 @@ func RunBandwidthTasks(ctx context.Context) {
 	wg.Wait()
 }
 
-func orchestrateIPerfJobs(ctx context.Context, nodeName string, otherNodes []string) map[string]float64 {
+func orchestrateIPerfTasks(ctx context.Context, nodeName string, otherNodes []string) map[string]float64 {
 	// The key is the node, the value is the bandwidth
 	bandwidthMap := make(map[string]float64)
 	fmt.Println("Connecting to orchestrator")
 	// Dial to the orchestrator on the dispatcher server
 	connection, err := net.Dial(ServerType, net.JoinHostPort(DispatcherHost, strconv.Itoa(OrchestratorPort)))
-	for errors.Is(err, syscall.ECONNREFUSED) {
+	var dnsError *net.DNSError
+	for errors.Is(err, syscall.ECONNREFUSED) || errors.As(err, &dnsError) {
 		fmt.Println("Connection refused, retrying")
 		connection, err = net.Dial(ServerType, net.JoinHostPort(DispatcherHost, strconv.Itoa(OrchestratorPort)))
 	}
 	handle(err)
 	var wr io.WriteCloser = connection
 	fmt.Println("Writing node name")
-	sockets.WriteOutput(&wr, []byte(nodeName))
+	err = sockets.WriteOutput(&wr, []byte(nodeName))
+	handle(err)
 	fmt.Println("Connected to orchestrator")
 	var reader io.ReadCloser = connection
 	for range otherNodes {
 		inpt, _ := sockets.ReadInput(&reader)
 		connectTo := string(inpt)
 		fmt.Printf("Connecting to %s\n", connectTo)
+		fmt.Println("Waiting for chaos mesh to activate")
+		test_util.WaitForChaosMeshRunning(ctx, nodeName, connectTo)
+		fmt.Println("ChaosMesh activated")
 		bandwidth := startConnection(ctx, connectTo)
 		fmt.Printf("Finished job on %s\n", connectTo)
 		bandwidthMap[connectTo] = bandwidth
@@ -156,8 +186,14 @@ func orchestrateIPerfJobs(ctx context.Context, nodeName string, otherNodes []str
 
 func sendToDispatcher(jsonData []byte) {
 	connection, err := net.Dial(ServerType, net.JoinHostPort(DispatcherHost, strconv.Itoa(ReceiveSystemInfoPort)))
+	var dnsError *net.DNSError
+	for errors.Is(err, syscall.ECONNREFUSED) || errors.As(err, &dnsError) {
+		fmt.Println("Connection refused, retrying")
+		connection, err = net.DialTimeout(ServerType, net.JoinHostPort(DispatcherHost, strconv.Itoa(ReceiveSystemInfoPort)), 10*time.Second)
+	}
 	handle(err)
 
 	var writer io.WriteCloser = connection
-	sockets.WriteOutput(&writer, jsonData)
+	err = sockets.WriteOutput(&writer, jsonData)
+	handle(err)
 }

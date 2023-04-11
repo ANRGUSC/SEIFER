@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Dat-Boi-Arjun/DEFER/system_init_job/get_system_info_container/pkg"
+	"github.com/Dat-Boi-Arjun/SEIFER/system_init_job/get_system_info_container/pkg"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -42,10 +42,12 @@ func main() {
 		nodes = append(nodes, item.Name)
 	}
 
-	system_info.LaunchJobs(ctx, clientset, nodes)
+	connectionsToNode := system_info.GetConnectionsToNode(nodes)
+
+	system_info.LaunchJobs(ctx, clientset, nodes, connectionsToNode)
 	var wg sync.WaitGroup
 	wg.Add(2)
-	go system_info.Run(&wg, nodes)
+	go system_info.Run(&wg, nodes, connectionsToNode)
 	go system_info.ReceiveData(&wg, NumNodes)
 	wg.Wait()
 

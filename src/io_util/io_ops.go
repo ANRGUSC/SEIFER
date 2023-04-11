@@ -18,16 +18,17 @@ func handle(e error) {
 }
 
 // Named pipes are non-blocking, sockets are blocking
-// handleOtherErrs returns true if it's a blocking error, false if there's no error, and panics for other errors
+// handleOtherErrs returns true if it's a blocking error or false if there's no error, and panics for other errors
 func handleOtherErrs(err error) bool {
 	if err == nil {
 		return false
 	}
 	if errors.Is(err, syscall.EAGAIN) || errors.Is(err, syscall.EWOULDBLOCK) {
 		return true
-	} else {
-		panic(err)
 	}
+	panic(err)
+
+	// This will never run but we need it for the function
 	return false
 }
 
@@ -38,7 +39,7 @@ func ReadInput(reader *io.ReadCloser) ([]byte, error) {
 	// Looping until we read all 4 bytes of the data size
 	for sizeLeftToRead > 0 {
 		amtRead, err := (*reader).Read(dataSizeArr[intSizeBytes-sizeLeftToRead:])
-		if errors.Is(err, syscall.ECONNRESET) {
+		if errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil, err
 		}
 		// If there wasn't data to read, try again on next loop
@@ -61,7 +62,7 @@ func ReadInput(reader *io.ReadCloser) ([]byte, error) {
 	dataLeftToRead := dataSize
 	for dataLeftToRead > 0 {
 		amtRead, err := (*reader).Read(data[dataSize-dataLeftToRead:])
-		if errors.Is(err, syscall.ECONNRESET) {
+		if errors.Is(err, syscall.ECONNRESET) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 			return nil, err
 		}
 		// If there wasn't data to read, try again on next loop

@@ -3,6 +3,8 @@ package system_info
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"strconv"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -16,13 +18,7 @@ const (
 	ReceiveSystemInfoPort int = 3000
 )
 
-func createJob(ctx context.Context, clientset *kubernetes.Clientset, nodes []string, nodeName string) {
-	otherNodes := make([]string, 0, len(nodes)-1)
-	for _, node := range nodes {
-		if node != nodeName {
-			otherNodes = append(otherNodes, node)
-		}
-	}
+func createJob(ctx context.Context, clientset *kubernetes.Clientset, numNodes int, otherNodes []string, nodeName string) {
 	otherNodesJson, _ := json.Marshal(otherNodes)
 
 	jobClient := clientset.BatchV1().Jobs(corev1.NamespaceDefault)
@@ -52,8 +48,14 @@ func createJob(ctx context.Context, clientset *kubernetes.Clientset, nodes []str
 					Containers: []corev1.Container{
 						{
 							Name:  jobName,
-							Image: "ghcr.io/dat-boi-arjun/get_node_bandwidths:latest",
+							Image: "localhost:5000/get_node_bandwidths:latest",
+							// Build image to local container registry and pull
+							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
+								{
+									Name:  "NUM_NODES",
+									Value: strconv.Itoa(numNodes),
+								},
 								{
 									Name:  "OTHER_NODES",
 									Value: string(otherNodesJson),
@@ -76,8 +78,27 @@ func createJob(ctx context.Context, clientset *kubernetes.Clientset, nodes []str
 							Name: "ghcr-imagepull-auth",
 						},
 					},
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					NodeName:      nodeName,
+					// For now, don't make pods restart, so we can see if the pod IPs change during execution
+					RestartPolicy:      corev1.RestartPolicyNever,
+					ServiceAccountName: "defer-admin-account",
+					// Pod of corresponding job needs to be scheduled to the specified node, otherwise the job won't run
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "kubernetes.io/hostname",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{nodeName},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 			TTLSecondsAfterFinished: &terminateAfter,
@@ -165,13 +186,15 @@ func createServices(ctx context.Context, clientset *kubernetes.Clientset, nodes 
 			ObjectMeta: metav1.ObjectMeta{
 				Name: serviceName,
 				Labels: map[string]string{
-					"app": "defer",
+					"app":           "defer",
+					"assigned-node": node,
 				},
 			},
 			Spec: corev1.ServiceSpec{
 				Selector: map[string]string{
 					"assigned-node": node,
 				},
+				ClusterIP: corev1.ClusterIPNone,
 				Ports: []corev1.ServicePort{
 					{
 						Name:     "inference-input",
@@ -182,7 +205,7 @@ func createServices(ctx context.Context, clientset *kubernetes.Clientset, nodes 
 					{
 						Name:     "iperf-server-port",
 						Protocol: "TCP",
-						// Standard port used across inference pods
+						// Port to receive iperf connections
 						Port: 5201,
 					},
 				},
@@ -202,7 +225,7 @@ func createServices(ctx context.Context, clientset *kubernetes.Clientset, nodes 
 	}
 }
 
-func LaunchJobs(ctx context.Context, clientset *kubernetes.Clientset, nodes []string) {
+func LaunchJobs(ctx context.Context, clientset *kubernetes.Clientset, nodes []string, connectionsToNode map[string][]string) {
 	fmt.Println("LaunchJobs() running")
 
 	// Create the dispatcher and each compute node's service
@@ -210,8 +233,14 @@ func LaunchJobs(ctx context.Context, clientset *kubernetes.Clientset, nodes []st
 
 	fmt.Println("Services created, now creating jobs")
 	for _, node := range nodes {
-		createJob(ctx, clientset, nodes, node)
+		otherNodes := connectionsToNode[node]
+		createJob(ctx, clientset, len(nodes), otherNodes, node)
 		fmt.Printf("Created job for node %s\n", node)
 	}
+
+	cmd := exec.Command("/bin/sh", "/root/cluster_test.sh")
+	out, err := cmd.CombinedOutput()
+	fmt.Println(string(out))
+	handle(err)
 	fmt.Println("LaunchJobs() finished")
 }

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="KubernetesSettings">
+    <specSources>
+      <SpecSource>
+        <option name="pathOrUrl" value="https://mirrors.chaos-mesh.org/v2.5.1/crd.yaml" />
+      </SpecSource>
+    </specSources>
+  </component>
+</project>

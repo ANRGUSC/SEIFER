@@ -7,35 +7,45 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/Dat-Boi-Arjun/DEFER/io_util"
+	"github.com/Dat-Boi-Arjun/SEIFER/io_util"
 )
 
 const (
 	OrchestratorPort = 4000
 )
 
-func Run(mainWg *sync.WaitGroup, nodes []string) {
+func GetConnectionsToNode(nodes []string) map[string][]string {
+	numNodes := len(nodes)
+	connectionsToNode := make(map[string][]string)
+	// Every node except the last node has connections
+	for i, node := range nodes[:numNodes-1] {
+		// The max connections to a node will be the first node, which will have n-1 connections
+		// The second node will have n-2 connections and so on...
+		connectionsToNode[node] = make([]string, 0, (numNodes-1)-i)
+		// Node i will be the current node, so nodes[i+1:] has the rest of the nodes in the list
+		for _, otherNode := range nodes[i+1:] {
+			connectionsToNode[node] = append(connectionsToNode[node], otherNode)
+		}
+	}
+
+	// Last node is part of the map but has no connections
+	lastNode := nodes[numNodes-1]
+	connectionsToNode[lastNode] = make([]string, 0)
+
+	return connectionsToNode
+}
+
+func Run(mainWg *sync.WaitGroup, nodes []string, connectionsToNode map[string][]string) {
 	fmt.Println("Orchestrating connections")
 	server, err := net.Listen("tcp", net.JoinHostPort("", strconv.Itoa(OrchestratorPort)))
 	handle(err)
 	numNodes := len(nodes)
 
-	connectionsToNode := make(map[string][]string)
-	for _, node := range nodes {
-		connectionsToNode[node] = make([]string, 0, numNodes-1)
-		for _, otherNode := range nodes {
-			if otherNode != node {
-				connectionsToNode[node] = append(connectionsToNode[node], otherNode)
-			}
-		}
-	}
-
-	fmt.Println(nodes)
-
 	nodeConns := make(map[string]*net.Conn)
 
 	fmt.Println("Waiting for orchestrator connections")
-	for len(nodeConns) < numNodes {
+	// Every node except the last node needs to connect and run bandwidth jobs
+	for len(nodeConns) < numNodes-1 {
 		conn, err := server.Accept()
 		fmt.Println(len(nodeConns))
 		handle(err)
@@ -57,7 +67,8 @@ func Run(mainWg *sync.WaitGroup, nodes []string) {
 
 // orchestrateIperfConns will preside over the iperf server on a certain node and tell other nodes when they can connect
 func orchestrateIperfConns(nodes []string, connectionToNodes map[string][]string, nodeConns map[string]*net.Conn) {
-	for _, node := range nodes {
+	// Every node except the last needs to orchestrate IPerf connections
+	for _, node := range nodes[:len(nodes)-1] {
 		fmt.Printf("Orchestrating connections for %s\n", node)
 		for _, otherNode := range connectionToNodes[node] {
 			// Tell node it can connect to the iperf server on otherNode

@@ -10,7 +10,7 @@ COPY ./io_util/ ${fp}/src/io_util/
 ENV GOPATH=$fp
 # Initialize module in src directory (root of code files)
 WORKDIR ${fp}/src
-RUN go mod init github.com/Dat-Boi-Arjun/DEFER
+RUN go mod init github.com/Dat-Boi-Arjun/SEIFER
 
 WORKDIR ${fp}/src/inference_pod/io_container/bin/
 RUN env GOOS=linux GOARCH=arm go build -o ${fp}/main main.go
@@ -21,5 +21,6 @@ ARG fp
 
 WORKDIR $fp
 COPY --from=build_stage ${fp}/main ./
+COPY --from=build_stage ${fp}/src/inference_pod/io_container/pkg/readiness_check.sh ./
 
 ENTRYPOINT ["./main"]

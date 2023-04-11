@@ -4,3 +4,4 @@ metadata:
   name: nfs-backing-storage
 provisioner: kubernetes.io/no-provisioner
 volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete

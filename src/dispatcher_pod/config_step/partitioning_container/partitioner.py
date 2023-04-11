@@ -28,69 +28,21 @@ class Partitioner:
         outbound = self.model.get_layer(layer_name).outbound_nodes
         return [node.outbound_layer.name for node in outbound]
 
-    # Traverses the model starting from layer_name all the way to start
-    def traverse(self, layer_name, start, part_name, inpt):
-        # On subsequent recursive steps, the new input layer will be defined,
-        # so that name needs to be checked in base case
-        if (layer_name == start) or (layer_name == part_name):
-            return inpt
-
-        output = []
-        for n in self.get_previous(layer_name):
-            output.append(self.traverse(n, start, part_name, inpt))
-
-        # If the DAG node only has 1 previous connection
-        if len(output) == 1:
-            output = output[0]
-
-        layer = self.model.get_layer(layer_name)
-        to_next = layer(output)
-        return to_next
-
     # Constructs model using shape of start layer as the input (doesn't include start layer in the model)
-    def _construct_model(self, start, end, part_name="part_begin"):
+    def construct_model(self, start, end, part_name="part_begin"):
         inpt = keras.Input(tensor=self.model.get_layer(start).output, name=part_name)
-        output = self.traverse(end, start, part_name, inpt)
-        part = keras.Model(inputs=self.model.get_layer(start).output, outputs=output)
+        outpt = self.model.get_layer(end).output
+        part = keras.Model(inputs=inpt, outputs=outpt)
         return part
 
-    def construct_models(self, model: keras.Model, num_nodes: int, num_classes: int, node_capacity: int, G_c: nx.Graph):
-        partitioner = Partitioner(model)
-        part_pts = partitioner.find_partitions()
-        transfers = partitioner.find_partition_transfer_size(part_pts)
-
-        partition_mems = partitioner.find_partition_memory(part_pts)
+    def partitions_and_placement(self, num_nodes: int, num_classes: int, node_capacity: int, G_c: nx.Graph):
+        part_pts = self.find_partitions()
+        transfers = self.find_partition_transfer_size(part_pts)
+        partition_mems = self.find_partition_memory(part_pts)
         partitions, node_arrangement = self.graph_utils.partition_and_place(num_nodes, node_capacity, G_c, num_classes,
                                                                             part_pts, transfers, partition_mems)
 
-        constructed_models = []
-        i = 0
-
-        # Ignore the dispatcher "partition"
-        for p in partitions[1:]:
-            # Model input
-            if p[0] == 0:
-                start_layer = part_pts[0]
-            else:
-                # _construct_model() uses an exclusive start layer but inclusive end layer
-                start_layer = part_pts[p[0]-1]
-
-            # Model output
-            if p[1] == len(part_pts):
-                end_layer = part_pts[-1]
-            else:
-                # End layer of partition in graph is exclusive, so need to subtract one from end layer index
-                # to use with _construct_model(), which has inclusive end layer
-                end_layer = part_pts[p[1]-1]
-
-            print(f"Partition {i}: ({start_layer}, {end_layer})")
-
-            model = self._construct_model(start_layer, end_layer, part_name=f"part_{i}")
-            constructed_models.append(model)
-            print("Partition constructed")
-            i += 1
-
-        return node_arrangement, constructed_models
+        return part_pts, partitions, node_arrangement
 
     # A recursive function used by longest_path. See below
     # link for details

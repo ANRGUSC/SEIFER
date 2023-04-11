@@ -10,10 +10,11 @@ import (
 	"path/filepath"
 	"syscall"
 
-	pipesutil "github.com/Dat-Boi-Arjun/DEFER/io_util/pipes_util"
-	sockets "github.com/Dat-Boi-Arjun/DEFER/io_util/sockets_util"
+	pipesutil "github.com/Dat-Boi-Arjun/SEIFER/io_util/pipes_util"
+	sockets "github.com/Dat-Boi-Arjun/SEIFER/io_util/sockets_util"
 )
 
+var node = os.Getenv("NODE")
 var nextNode = os.Getenv("NEXT_NODE")
 
 func handle(e error) {
@@ -74,6 +75,8 @@ func RunSockets() {
 	}
 	fmt.Println("Got connections from channel")
 
+	inferencePodReadinessCheck(ctx, node, nextNode)
+
 	fmt.Println("Launching transfer to inference")
 	// Incoming socket data -> inference
 	go sockets.Transfer(ctx, &readSock, &sendPipe, toInferenceTransferInfo)
@@ -91,26 +94,6 @@ func RunSockets() {
 	fmt.Println("Launching transfer from inference")
 	// Outgoing inference data -> next node
 	go sockets.Transfer(ctx, &recvPipe, &writeSock, fromInferenceTransferInfo)
-
-	// Test code
-	/*
-		go func() {
-			for i := 0; i < 1000; i++ {
-				err := ioutil.WriteOutput(&sendPipe, []byte("golangdata"))
-				handle(err)
-				fmt.Printf("Sent data %d\n", i)
-			}
-		}()
-
-		go func() {
-			for i := 0; i < 1000; i++ {
-				data, err := ioutil.ReadInput(&recvPipe)
-				handle(err)
-				fmt.Printf("Received data %d: %s\n", i, string(data))
-			}
-		}()
-
-	*/
 
 	fmt.Println("Waiting for context to finish")
 	select {

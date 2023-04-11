@@ -1,0 +1,79 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: minikube-connections
+spec:
+  entry: minikube-workflow
+  templates:
+    - name: minikube-workflow
+      templateType: Parallel
+      children:
+        - minikube-minikube-m02
+        - minikube-minikube-m03
+        - minikube-minikube-m04
+    - name: minikube-minikube-m02
+      templateType: NetworkChaos
+      networkChaos:
+        action: bandwidth
+        mode: all
+        selector:
+          namespaces:
+            - default
+          labelSelectors:
+            'assigned-node': 'minikube'
+        bandwidth:
+          rate: '1mbps'
+          limit: 20000000
+          buffer: 10000
+        direction: both
+        target:
+          mode: all
+          selector:
+            namespaces:
+              - default
+            labelSelectors:
+              'assigned-node': 'minikube-m02'
+    - name: minikube-minikube-m03
+        templateType: NetworkChaos
+        networkChaos:
+          action: bandwidth
+          mode: all
+          selector:
+            namespaces:
+              - default
+            labelSelectors:
+              'assigned-node': 'minikube'
+          bandwidth:
+            rate: '0.55mbps'
+            limit: 20000000
+            buffer: 10000
+          direction: both
+          target:
+            mode: all
+            selector:
+              namespaces:
+                - default
+              labelSelectors:
+                'assigned-node': 'minikube-m03'
+    - name: minikube-minikube-m04
+        templateType: NetworkChaos
+        networkChaos:
+          action: bandwidth
+          mode: all
+          selector:
+            namespaces:
+              - default
+            labelSelectors:
+              'assigned-node': 'minikube'
+          bandwidth:
+            rate: '0.2mbps'
+            limit: 20000000
+            buffer: 10000
+          direction: both
+          target:
+            mode: all
+            selector:
+              namespaces:
+                - default
+              labelSelectors:
+                'assigned-node': 'minikube-m04'

@@ -1,0 +1,56 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: 5-node-cluster-m03-connections
+spec:
+  entry: 5-node-cluster-m03-workflow
+  templates:
+  - name: 5-node-cluster-m03-workflow
+    templateType: Parallel
+    children:
+    - 5-node-cluster-m03-5-node-cluster-m04
+    - 5-node-cluster-m03-5-node-cluster-m05
+  - name: 5-node-cluster-m03-5-node-cluster-m04
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+          - default
+        nodes:
+          - 5-node-cluster-m03
+      bandwidth:
+        rate: "1mbps"
+        limit: 10000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+            - default
+          nodes:
+            - 5-node-cluster-m04
+  - name: 5-node-cluster-m03-5-node-cluster-m05
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+          - default
+        nodes:
+          - 5-node-cluster-m03
+      bandwidth:
+        rate: "1mbps"
+        limit: 10000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+            - default
+          nodes:
+            - 5-node-cluster-m05

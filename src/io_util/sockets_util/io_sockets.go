@@ -11,8 +11,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Dat-Boi-Arjun/DEFER/io_util"
-	"github.com/Dat-Boi-Arjun/DEFER/io_util/pipes_util"
+	"github.com/Dat-Boi-Arjun/SEIFER/io_util"
+	"github.com/Dat-Boi-Arjun/SEIFER/io_util/pipes_util"
 )
 
 // Standardized across all inference io
@@ -125,9 +125,9 @@ func CreateClientSocket(c chan *net.Conn, nextNode string) {
 	}
 	connection, err := net.Dial(ServerType, net.JoinHostPort(hostname, strconv.Itoa(ServerPort)))
 	// Keep trying connection until we can get through
-	for errors.Is(err, syscall.ECONNREFUSED) {
+	var dnsError *net.DNSError
+	for errors.Is(err, syscall.ECONNREFUSED) || errors.As(err, &dnsError) {
 		fmt.Println("Connection refused, retrying")
-		time.Sleep(500 * time.Millisecond)
 		connection, err = net.DialTimeout(ServerType, net.JoinHostPort(hostname, strconv.Itoa(ServerPort)), 10*time.Second)
 	}
 	handle(err)
@@ -142,7 +142,7 @@ func CreateServerSocket(c chan *net.Conn) {
 	fmt.Println("Listening on " + server.Addr().String())
 	connection, err := server.Accept()
 	// After getting the single client connection we can close the listener
-	server.Close()
+	err = server.Close()
 	handle(err)
 	fmt.Println("client connected")
 	c <- &connection

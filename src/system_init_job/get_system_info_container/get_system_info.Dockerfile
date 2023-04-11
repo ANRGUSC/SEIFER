@@ -11,7 +11,7 @@ COPY ./io_util/ ${fp}/src/io_util/
 ENV GOPATH=$fp
 # Initialize module in src directory (root of code files)
 WORKDIR ${fp}/src
-RUN go mod init github.com/Dat-Boi-Arjun/DEFER
+RUN go mod init github.com/Dat-Boi-Arjun/SEIFER
 RUN go get k8s.io/api@latest
 RUN go get k8s.io/client-go@latest
 RUN go get k8s.io/apimachinery@latest
@@ -27,6 +27,8 @@ ARG fp
 WORKDIR $fp
 COPY --from=build_stage ${fp}/main ./
 COPY --from=build_stage ${fp}/src/system_init_job/get_system_info_container/pkg/dispatcher_configmap.sh ./
+COPY --from=build_stage ${fp}/src/system_init_job/get_system_info_container/pkg/cluster_test.sh ./
+COPY --from=build_stage ${fp}/src/system_init_job/get_system_info_container/pkg/configs/ ./configs/
 
 # Install kubectl
 RUN apk update && apk add curl && \

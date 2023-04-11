@@ -4,15 +4,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 
-	pipesutil "github.com/Dat-Boi-Arjun/DEFER/io_util/pipes_util"
-	socketsutil "github.com/Dat-Boi-Arjun/DEFER/io_util/sockets_util"
+	pipesutil "github.com/Dat-Boi-Arjun/SEIFER/io_util/pipes_util"
+	socketsutil "github.com/Dat-Boi-Arjun/SEIFER/io_util/sockets_util"
 )
 
 func handle(e error) {
@@ -21,9 +20,18 @@ func handle(e error) {
 	}
 }
 
+const (
+	configDir     = "/nfs/dispatcher_config"
+	readinessFile = "/readiness_check/ready.txt"
+)
+
 func RunSockets() {
-	var firstNode, _ = ioutil.ReadFile("/nfs/dispatcher_config/dispatcher_next_node.txt")
+
+	firstNode, _ := os.ReadFile(fmt.Sprintf("%s/dispatcher_next_node.txt", configDir))
 	sendTo := string(firstNode)
+
+	dispatcher, _ := os.ReadFile(fmt.Sprintf("%s/dispatcher_node.txt", configDir))
+	dispatcherNode := string(dispatcher)
 
 	// Let all processes know when we exit, so we can stop all pods
 	ctx := context.Background()
@@ -59,7 +67,7 @@ func RunSockets() {
 		},
 	}
 
-	// Needs to be concurrent so other nodes can connect to the server too
+	// Needs to be concurrent so last compute node can connect to the server too
 	cCli, cServ := make(chan *net.Conn, 1), make(chan *net.Conn, 1)
 	// Create all connections concurrently
 	go socketsutil.CreateClientSocket(cCli, sendTo)
@@ -93,6 +101,8 @@ func RunSockets() {
 	// Model inference -> Python processing
 	// User needs to encode the data w/ ZFP and use LZ4 compression
 	go socketsutil.Transfer(ctx, &inferenceReader, &writePipe, toProcessingTransferInfo)
+
+	systemReadinessCheck(ctx, dispatcherNode, sendTo)
 
 	select {
 	case <-c:

@@ -43,7 +43,6 @@ def inference(in_q: Queue, out_q: Queue):
         interpreter.invoke()
         prediction = interpreter.get_tensor(output_index)
 
-        print("Got prediction", list(prediction))
         out_q.put(prediction)
 
 

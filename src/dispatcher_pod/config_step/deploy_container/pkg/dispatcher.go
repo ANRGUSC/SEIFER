@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	inference_io "github.com/Dat-Boi-Arjun/SEIFER/inference_pod/io_container/pkg"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -39,15 +40,17 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 
 		// Each partition needs to have its own deployment (because the pod spec is different for each partition)
 		var replicas int32 = 1
+		var terminationGracePeriod int64 = 0
 		partitionDeployment := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: fmt.Sprintf("node-%s-partition", n),
+				Name: fmt.Sprintf("%s-partition", n),
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: &replicas, // Each partitionDeployment only has 1 pod
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
 						"task":          "inference",
+						"type":          "compute",
 						"assigned-node": n,
 					},
 				},
@@ -55,15 +58,18 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
 							"task":          "inference",
+							"type":          "compute",
 							"assigned-node": n,
 						},
 					},
 					Spec: corev1.PodSpec{
+						TerminationGracePeriodSeconds: &terminationGracePeriod,
 						Containers: []corev1.Container{
 							{
 								// Python inference container (same image for all pods)
-								Name:            "inference-runtime",
-								Image:           "ghcr.io/dat-boi-arjun/inference_runtime:latest",
+								Name:  "inference-runtime",
+								Image: "localhost:5000/inference_runtime:latest",
+								// Build image to local container registry and pull
 								ImagePullPolicy: corev1.PullAlways,
 								Env: []corev1.EnvVar{
 									{
@@ -85,13 +91,19 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 							{
 								// Golang input/output socket
 								Name:  "inference-sockets",
-								Image: "ghcr.io/dat-boi-arjun/pod_inference_io",
+								Image: "localhost:5000/pod_inference_io:latest",
+								// Build image to local container registry and pull
+								ImagePullPolicy: corev1.PullAlways,
 								Ports: []corev1.ContainerPort{{
 									ContainerPort: 8080,
 									Name:          "socket-io",
 									Protocol:      "TCP",
 								}},
 								Env: []corev1.EnvVar{
+									{
+										Name:  "NODE",
+										Value: n,
+									},
 									{
 										Name:  "NEXT_NODE",
 										Value: string(nextNode),
@@ -102,6 +114,18 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 										Name:      "pipe-communication",
 										MountPath: "/io",
 									},
+								},
+								ReadinessProbe: &corev1.Probe{
+									ProbeHandler: corev1.ProbeHandler{
+										Exec: &corev1.ExecAction{
+											Command: []string{
+												"/bin/sh",
+												"/root/readiness_check.sh",
+												inference_io.ReadinessFile,
+											},
+										},
+									},
+									PeriodSeconds: 2,
 								},
 							},
 						},
@@ -130,8 +154,27 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 						},
 						RestartPolicy:      corev1.RestartPolicyAlways,
 						DNSPolicy:          "ClusterFirst",
-						ServiceAccountName: "default",
-						NodeName:           n, // The node we want to pod to be scheduled on
+						ServiceAccountName: "defer-admin-account",
+						// Inference pod tries to be scheduled to where the placement algorithm told it to,
+						// but if that node is unavailable then Kubernetes will still schedule the pod somewhere else
+						Affinity: &corev1.Affinity{
+							NodeAffinity: &corev1.NodeAffinity{
+								PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+									{
+										Weight: 1,
+										Preference: corev1.NodeSelectorTerm{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "kubernetes.io/hostname",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{n},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -140,7 +183,7 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 		// Create deployment
 		_, err = deploymentClient.Create(ctx, partitionDeployment, metav1.CreateOptions{})
 		if err != nil && errors.IsAlreadyExists(err) {
-			err := deploymentClient.Delete(ctx, fmt.Sprintf("node-%s-partition-deployment", n), metav1.DeleteOptions{})
+			err := deploymentClient.Delete(ctx, fmt.Sprintf("%s-partition", n), metav1.DeleteOptions{})
 			handle(err)
 			_, err = deploymentClient.Create(ctx, partitionDeployment, metav1.CreateOptions{})
 			handle(err)
@@ -154,8 +197,11 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 
 	var node, _ = ioutil.ReadFile("/nfs/dispatcher_config/dispatcher_node.txt")
 	dispatcherNode := string(node)
+	fmt.Printf("Dispatcher node: %s\n")
 
 	var replicas int32 = 1
+	var terminationGracePeriod int64 = 0
+
 	dispatcherDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "dispatcher-deployment",
@@ -164,23 +210,40 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":           "dispatcher",
-					"assigned-node": "dispatcher",
+					"task":          "dispatcher_inference",
+					"type":          "dispatcher",
+					"assigned-node": dispatcherNode,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app":           "dispatcher",
-						"assigned-node": "dispatcher",
+						"task":          "dispatcher_inference",
+						"type":          "dispatcher",
+						"assigned-node": dispatcherNode,
 					},
 				},
 				Spec: corev1.PodSpec{
+					TerminationGracePeriodSeconds: &terminationGracePeriod,
 					Containers: []corev1.Container{
 						{
 							// Python inference container (same image for all pods)
 							Name:  "dispatch-inference-data",
-							Image: "ghcr.io/dat-boi-arjun/dispatcher_inference_io:latest",
+							Image: "localhost:5000/dispatcher_inference_io:latest",
+							// Build image to local container registry and pull
+							ImagePullPolicy: corev1.PullAlways,
+							// Finished inference from last compute node
+							Ports: []corev1.ContainerPort{{
+								ContainerPort: 8080,
+								Name:          "socket-io",
+								Protocol:      "TCP",
+							}},
+							Env: []corev1.EnvVar{
+								{
+									Name:  "NODE",
+									Value: dispatcherNode,
+								},
+							},
 							VolumeMounts: []corev1.VolumeMount{
 								// Read dispatcher next node
 								{
@@ -193,17 +256,13 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 									MountPath: "/io",
 								},
 							},
-							// Finished inference from last compute node
-							Ports: []corev1.ContainerPort{
-								{
-									ContainerPort: 8080,
-								},
-							},
 						},
 						{
 							// Process external inference input
 							Name:  "process-inference-input",
-							Image: "ghcr.io/dat-boi-arjun/process_inference_input:latest",
+							Image: "localhost:5000/process_inference_input:latest",
+							// Build image to local container registry and pull
+							ImagePullPolicy: corev1.PullAlways,
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "pipe-communication",
@@ -244,8 +303,26 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 					RestartPolicy:      corev1.RestartPolicyAlways,
 					DNSPolicy:          "ClusterFirst",
 					ServiceAccountName: "defer-admin-account",
-					// Dispatcher gets scheduled to wherever the system-init-job was scheduled
-					NodeName: dispatcherNode,
+					// Dispatcher tries to be scheduled to where the placement algorithm told it to,
+					// but if that node is unavailable then Kubernetes will still schedule the pod somewhere else
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{
+								{
+									Weight: 1,
+									Preference: corev1.NodeSelectorTerm{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "kubernetes.io/hostname",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{dispatcherNode},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -253,9 +330,12 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 	// Create deployment
 	_, err := deploymentClient.Create(ctx, dispatcherDeployment, metav1.CreateOptions{})
 	if err != nil && errors.IsAlreadyExists(err) {
+		fmt.Println("Dispatcher deployment already created, deleting and re-creating")
 		err = deploymentClient.Delete(ctx, "dispatcher-deployment", metav1.DeleteOptions{})
 		handle(err)
 		_, err = deploymentClient.Create(ctx, dispatcherDeployment, metav1.CreateOptions{})
 		handle(err)
 	}
+
+	fmt.Println("Created dispatcher deployment")
 }
