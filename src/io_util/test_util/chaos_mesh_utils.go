@@ -18,22 +18,18 @@ func handle(e error) {
 // exists between node and otherNode
 func WaitForChaosMeshRunning(ctx context.Context, node string, otherNode string) {
 	networkChaosName := fmt.Sprintf("%s-%s", node, otherNode)
-	chaosSelectedArgs := fmt.Sprintf("kubectl describe networkchaos %s | grep -B 1 \"Type:.*Selected\" | awk '/Status:/ {print $2}'", networkChaosName)
-	chaosInjectedArgs := fmt.Sprintf("kubectl describe networkchaos %s | grep -B 1 \"Type:.*AllInjected\" | awk '/Status:/ {print $2}'", networkChaosName)
+
+	// In case the network chaos name is in this order of the node names
+	networkChaosNameSwitched := fmt.Sprintf("%s-%s", otherNode, node)
 
 	for {
-		isSelectedCmd := exec.CommandContext(ctx, "bash", "-c", chaosSelectedArgs)
-		isInjectedCmd := exec.CommandContext(ctx, "bash", "-c", chaosInjectedArgs)
-		isSelectedOutput, err := isSelectedCmd.CombinedOutput()
-		isSelected := strings.TrimSpace(string(isSelectedOutput)) == "True"
-		fmt.Printf("Selected: %s\n", string(isSelectedOutput))
-		handle(err)
-		isInjectedOutput, err := isInjectedCmd.CombinedOutput()
-		isInjected := strings.TrimSpace(string(isInjectedOutput)) == "True"
-		fmt.Printf("Injected: %s\n", string(isInjectedOutput))
-		handle(err)
+		isSelected := getConditionStatus(ctx, networkChaosName, "Selected")
+		switchedNameIsSelected := getConditionStatus(ctx, networkChaosNameSwitched, "Selected")
 
-		if isSelected && isInjected {
+		isInjected := getConditionStatus(ctx, networkChaosName, "AllInjected")
+		switchedNameIsInjected := getConditionStatus(ctx, networkChaosNameSwitched, "AllInjected")
+
+		if (isSelected && isInjected) || (switchedNameIsSelected && switchedNameIsInjected) {
 			break
 		}
 
@@ -41,3 +37,18 @@ func WaitForChaosMeshRunning(ctx context.Context, node string, otherNode string)
 		time.Sleep(500 * time.Millisecond)
 	}
 }
+
+func getConditionStatus(ctx context.Context, networkChaosName string, conditionType string) bool {
+	cmdArgs := fmt.Sprintf("kubectl describe networkchaos %s | grep -B 1 \"Type:.*%s\" | awk '/Status:/ {print $2}'", networkChaosName, conditionType)
+	cmd := exec.CommandContext(ctx, "bash", "-c", cmdArgs)
+
+	cmdOutput, err := cmd.CombinedOutput()
+	cmdResult := strings.TrimSpace(string(cmdOutput))
+	conditionTrue := cmdResult == "True"
+	fmt.Printf("%s: %s\n", conditionType, cmdResult)
+	handle(err)
+
+	return conditionTrue
+}
+
+

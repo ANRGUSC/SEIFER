@@ -9,10 +9,10 @@ import numpy as np
 from keras.utils import load_img, img_to_array
 from keras.applications.resnet import preprocess_input, decode_predictions
 
-FIFO_PATH = "/io"
-FIFO_INPUT_PATH = f"{FIFO_PATH}/to_processing"
-FIFO_OUTPUT_PATH = f"{FIFO_PATH}/from_processing"
-READINESS_ENDPOINT = "/readiness_check/ready.txt"
+IO_DIR = "/io"
+FIFO_INPUT_PATH = f"{IO_DIR}/to_processing"
+FIFO_OUTPUT_PATH = f"{IO_DIR}/from_processing"
+READINESS_ENDPOINT = f"{IO_DIR}/readiness_check/ready.txt"
 
 input_queue = Queue(10 ** 5)
 finished_queue = Queue(10 ** 5)
@@ -43,10 +43,6 @@ def run():
     print_outpt.join()
 
 
-# Create readiness probes for inference pods, saying that they're ready only when they've connected to their next and previous nodes
-# Then from the dispatch-inference-data runtime, use client-go to get all the inference pod status, and wait for them to all be ready
-# TODO figure out how to make python runtime know when dispatch-inference-data is ready to accept inference input
-
 def print_finished_inference(q: Queue):
     print("Getting output from system")
     for i in range(100):
@@ -67,6 +63,7 @@ def put_inference_input(q: Queue):
         while not data['ready']:
             print("Waiting for readiness check to succeed")
             time.sleep(0.5)
+    print("System ready, sending inference data")
     # Put inference data into system
     for i in range(100):
         q.put(arr)

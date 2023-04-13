@@ -5,6 +5,8 @@ FROM golang:latest as build_stage
 ARG fp
 
 COPY ./dispatcher_pod/config_step/deploy_container/ ${fp}/src/dispatcher_pod/config_step/deploy_container/
+COPY ./inference_pod/io_container/ ${fp}/src/inference_pod/io_container/
+COPY ./io_util/ ${fp}/src/io_util/
 
 ENV GOPATH=$fp
 # Initialize module in src directory (root of code files)
@@ -24,6 +26,8 @@ ARG fp
 
 WORKDIR $fp
 COPY --from=build_stage ${fp}/main ./
+COPY --from=build_stage ${fp}/src/dispatcher_pod/config_step/deploy_container/pkg/cluster_test.sh ./
+COPY --from=build_stage ${fp}/src/dispatcher_pod/config_step/deploy_container/pkg/configs/ ./configs/
 
 # Install kubectl
 RUN apk update && \

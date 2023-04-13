@@ -8,10 +8,8 @@ spec:
   selector:
     namespaces:
       - default
-#    nodes:
-#      - 5-node-cluster-m03
-    labelSelectors:
-      assigned-node: blah
+    nodes:
+      - 5-node-cluster-m03
   bandwidth:
     rate: '1mbps'
     limit: 20000000
@@ -24,5 +22,5 @@ spec:
         - default
       labelSelectors:
         assigned-node: blah
-#      nodes:
-#        - 5-node-cluster-m03
+      nodes:
+        - 5-node-cluster-m03

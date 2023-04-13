@@ -21,9 +21,11 @@ func handle(e error) {
 }
 
 const (
-	configDir     = "/nfs/dispatcher_config"
-	readinessFile = "/readiness_check/ready.txt"
+	configDir = "/nfs/dispatcher_config"
+	ioDir     = "/io"
 )
+
+var readinessDir = fmt.Sprintf("%s/readiness_check", ioDir)
 
 func RunSockets() {
 

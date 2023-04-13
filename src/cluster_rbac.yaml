@@ -13,9 +13,9 @@ rules:
   # All the groups/resources/verbs used within the golang client
   # Eventually create more specific roles
   - apiGroups: ["", "apps", "batch", "chaos-mesh.org"]
-    resources: ["deployments", "jobs", "services", "endpoints", "configmaps", "nodes", "persistentvolumes", "statefulsets",
+    resources: ["pods", "pods/status", "deployments", "jobs", "services", "endpoints", "configmaps", "nodes", "persistentvolumes", "statefulsets",
                 "serviceaccounts", "workflows", "networkchaos"]
-    verbs: ["create", "delete", "get", "list", "patch"]
+    verbs: ["create", "delete", "get", "list", "patch", "watch"]
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1

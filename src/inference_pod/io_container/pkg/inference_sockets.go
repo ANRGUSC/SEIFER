@@ -12,6 +12,8 @@ import (
 
 	pipesutil "github.com/Dat-Boi-Arjun/SEIFER/io_util/pipes_util"
 	sockets "github.com/Dat-Boi-Arjun/SEIFER/io_util/sockets_util"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var node = os.Getenv("NODE")
@@ -28,6 +30,13 @@ func RunSockets() {
 	// Let all processes know when we exit, so we can close all pipes/sockets
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
+
+	config, err := rest.InClusterConfig()
+	handle(err)
+	clientset, err := kubernetes.NewForConfig(config)
+	handle(err)
+	fmt.Println("Authenticated in-cluster")
+
 	c := make(chan os.Signal)
 	// The program won't exit on its own
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -75,7 +84,7 @@ func RunSockets() {
 	}
 	fmt.Println("Got connections from channel")
 
-	inferencePodReadinessCheck(ctx, node, nextNode)
+	inferencePodReadinessCheck(ctx, clientset, node, nextNode)
 
 	fmt.Println("Launching transfer to inference")
 	// Incoming socket data -> inference

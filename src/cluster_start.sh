@@ -3,7 +3,7 @@ kubectl delete statefulset nfs-provisioner
 kubectl delete deployments,jobs --all
 kubectl delete configmap dispatcher-config
 # Make sure that nfs directory exists
-#minikube ssh -n minikube "sudo mkdir /var/nfs_backing_pv"
+#minikube ssh -n 5-node-cluster "sudo mkdir /var/nfs_backing_pv"
 kubectl delete pvc nfs-backing-pvc
 kubectl delete pvc nfs
 kubectl delete pv --all

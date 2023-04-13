@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	inference_io "github.com/Dat-Boi-Arjun/SEIFER/inference_pod/io_container/pkg"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +30,9 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 		}
 	}
 	fmt.Println(nodes)
+
+	var node, _ = os.ReadFile("/nfs/dispatcher_config/dispatcher_node.txt")
+	dispatcherNode := string(node)
 
 	deploymentClient := clientset.AppsV1().Deployments(corev1.NamespaceDefault)
 	for _, n := range nodes {
@@ -108,24 +110,16 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 										Name:  "NEXT_NODE",
 										Value: string(nextNode),
 									},
+									{
+										Name:  "DISPATCHER_NAME",
+										Value: dispatcherNode,
+									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
 									{
 										Name:      "pipe-communication",
 										MountPath: "/io",
 									},
-								},
-								ReadinessProbe: &corev1.Probe{
-									ProbeHandler: corev1.ProbeHandler{
-										Exec: &corev1.ExecAction{
-											Command: []string{
-												"/bin/sh",
-												"/root/readiness_check.sh",
-												inference_io.ReadinessFile,
-											},
-										},
-									},
-									PeriodSeconds: 2,
 								},
 							},
 						},
@@ -195,7 +189,7 @@ func DeployInferencePods(ctx context.Context, clientset *kubernetes.Clientset) {
 func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Clientset) {
 	deploymentClient := clientset.AppsV1().Deployments(corev1.NamespaceDefault)
 
-	var node, _ = ioutil.ReadFile("/nfs/dispatcher_config/dispatcher_node.txt")
+	var node, _ = os.ReadFile("/nfs/dispatcher_config/dispatcher_node.txt")
 	dispatcherNode := string(node)
 	fmt.Printf("Dispatcher node: %s\n")
 
@@ -250,7 +244,8 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 									Name:      "nfs-volume",
 									MountPath: "/nfs",
 								},
-								// Get data from process-inference-input container over FIFO
+								// 1. Get data from process-inference-input container over FIFO
+								// 2. Create the readiness check file
 								{
 									Name:      "pipe-communication",
 									MountPath: "/io",
@@ -264,6 +259,8 @@ func DeployDispatcherInferencePod(ctx context.Context, clientset *kubernetes.Cli
 							// Build image to local container registry and pull
 							ImagePullPolicy: corev1.PullAlways,
 							VolumeMounts: []corev1.VolumeMount{
+								// 1. Get data from dispatch-inference-data container over FIFO
+								// 2. Look for the readiness check file
 								{
 									Name:      "pipe-communication",
 									MountPath: "/io",

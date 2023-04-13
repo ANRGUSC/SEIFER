@@ -15,7 +15,7 @@ import (
 )
 
 type ReadyJSON struct {
-	Ready bool
+	Ready bool `json:"ready"`
 }
 
 // systemReadinessCheck waits until all inference pods are ready and (if in a test environment) if the ChaosMesh
@@ -40,6 +40,7 @@ func systemReadinessCheck(ctx context.Context, dispatcherNode string, dispatcher
 
 	podsLeftToCheck := make(map[string]struct{}, len(podObjectList.Items))
 	for _, pod := range podObjectList.Items {
+		fmt.Printf("Inference pod: %s\n", pod.Name)
 		podsLeftToCheck[pod.Name] = struct{}{}
 	}
 
@@ -52,19 +53,22 @@ func systemReadinessCheck(ctx context.Context, dispatcherNode string, dispatcher
 		pod := event.Object.(*v1.Pod)
 		fmt.Printf("Event for pod %s\n", pod.Name)
 		for _, cond := range pod.Status.Conditions {
-			if cond.Type == v1.PodReady && cond.Status == v1.ConditionTrue {
+			if cond.Type == "InferenceReady" && cond.Status == v1.ConditionTrue {
 				fmt.Printf("Pod %s became ready \n", pod.Name)
 				// If the pod was previously deleted from the podsLeftToCheck list, delete() won't do anything,
 				// so it's fine if there are multiple PodReady events for the same pod
 				delete(podsLeftToCheck, pod.Name)
 			}
 		}
+		fmt.Printf("%d pods left to check\n", len(podsLeftToCheck))
 		if len(podsLeftToCheck) == 0 {
+			fmt.Println("All inference pods ready")
 			inferencePodsWatcher.Stop()
 			break
 		}
 	}
 
+	fmt.Println("Waiting for ChaosMesh running")
 	test_util.WaitForChaosMeshRunning(ctx, dispatcherNode, dispatcherNextNode)
 	fmt.Println("ChaosMesh ready")
 
@@ -92,6 +96,8 @@ func sendReadinessMessage() {
 	jsonData, err := json.Marshal(ready)
 	handle(err)
 
-	err = os.WriteFile(readinessFile, jsonData, 0644)
+	err = os.MkdirAll(readinessDir, 0644)
+	handle(err)
+	err = os.WriteFile(fmt.Sprintf("%s/ready.txt", readinessDir), jsonData, 0644)
 	handle(err)
 }

@@ -5,6 +5,15 @@ REGISTRY = localhost:5000
 # Change to your custom version
 VERSION = latest
 
+# TODO add variable to check whether in test mode or not
+# In test mode:
+# 1. Install Minikube
+# 2. Install Helm and ChaosMesh
+# 3. Install kubectl in various Dockerfiles (when issuing docker build command, pass in an argument indicating to do this)
+#  a. Install kubectl in pod_inference_io.Dockerfile so can check the networkchaos statuses
+#  b. Install kubectl in dispatcher_inference_io.Dockerfile so can check the networkchaos statuses
+
+
 all: system_init node_bw partitioner deploy_pods inference_io inference_runtime dispatch_inference process_inference
 
 system_init:

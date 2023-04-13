@@ -194,6 +194,7 @@ func createServices(ctx context.Context, clientset *kubernetes.Clientset, nodes 
 				Selector: map[string]string{
 					"assigned-node": node,
 				},
+				// Services are headless to enable TC ipset discovery for ChaosMesh bandwidth limit
 				ClusterIP: corev1.ClusterIPNone,
 				Ports: []corev1.ServicePort{
 					{
