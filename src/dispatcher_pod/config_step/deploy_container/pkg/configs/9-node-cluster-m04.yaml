@@ -1,0 +1,125 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Workflow
+metadata:
+  name: 9-node-cluster-m04-connections
+spec:
+  entry: 9-node-cluster-m04-workflow
+  templates:
+  - name: 9-node-cluster-m04-workflow
+    templateType: Parallel
+    children:
+    - 9-node-cluster-m04-9-node-cluster-m05
+    - 9-node-cluster-m04-9-node-cluster-m06
+    - 9-node-cluster-m04-9-node-cluster-m07
+    - 9-node-cluster-m04-9-node-cluster-m08
+    - 9-node-cluster-m04-9-node-cluster-m09
+  - name: 9-node-cluster-m04-9-node-cluster-m05
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+        - default
+        nodes:
+        - 9-node-cluster-m04
+      bandwidth:
+        rate: 6925kbps
+        limit: 10000000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+          - default
+          nodes:
+          - 9-node-cluster-m05
+  - name: 9-node-cluster-m04-9-node-cluster-m06
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+        - default
+        nodes:
+        - 9-node-cluster-m04
+      bandwidth:
+        rate: 5095kbps
+        limit: 10000000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+          - default
+          nodes:
+          - 9-node-cluster-m06
+  - name: 9-node-cluster-m04-9-node-cluster-m07
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+        - default
+        nodes:
+        - 9-node-cluster-m04
+      bandwidth:
+        rate: 4252kbps
+        limit: 10000000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+          - default
+          nodes:
+          - 9-node-cluster-m07
+  - name: 9-node-cluster-m04-9-node-cluster-m08
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+        - default
+        nodes:
+        - 9-node-cluster-m04
+      bandwidth:
+        rate: 3897kbps
+        limit: 10000000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+          - default
+          nodes:
+          - 9-node-cluster-m08
+  - name: 9-node-cluster-m04-9-node-cluster-m09
+    templateType: NetworkChaos
+    networkChaos:
+      action: bandwidth
+      mode: all
+      selector:
+        namespaces:
+        - default
+        nodes:
+        - 9-node-cluster-m04
+      bandwidth:
+        rate: 3897kbps
+        limit: 10000000
+        buffer: 10000
+      direction: both
+      target:
+        mode: all
+        selector:
+          namespaces:
+          - default
+          nodes:
+          - 9-node-cluster-m09

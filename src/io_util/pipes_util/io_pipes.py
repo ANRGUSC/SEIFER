@@ -78,7 +78,7 @@ def process_input(input_path: str, q: Queue):
         finally:
             arr_input = zfpy.decompress_numpy(lz4.frame.decompress(binary_data))
             print("Decompressed input")
-            q.put(arr_input)
+            q.put(arr_input, block=True)
             print("Sent input through queue to python runtime")
 
 
@@ -87,7 +87,7 @@ def process_output(output_path: str, q: Queue):
     print("Creating send pipe")
     send_pipe = create_pipe(output_path, "send")
     while True:
-        output_arr = q.get()
+        output_arr = q.get(block=True)
         print("Got data from queue")
         binary_output = lz4.frame.compress(zfpy.compress_numpy(output_arr))
         print("Compressed data")

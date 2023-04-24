@@ -1,16 +1,16 @@
 apiVersion: chaos-mesh.org/v1alpha1
 kind: Workflow
 metadata:
-  name: 5-node-cluster-m03-connections
+  name: 9-node-cluster-m07-connections
 spec:
-  entry: 5-node-cluster-m03-workflow
+  entry: 9-node-cluster-m07-workflow
   templates:
-  - name: 5-node-cluster-m03-workflow
+  - name: 9-node-cluster-m07-workflow
     templateType: Parallel
     children:
-    - 5-node-cluster-m03-5-node-cluster-m04
-    - 5-node-cluster-m03-5-node-cluster-m05
-  - name: 5-node-cluster-m03-5-node-cluster-m04
+    - 9-node-cluster-m07-9-node-cluster-m08
+    - 9-node-cluster-m07-9-node-cluster-m09
+  - name: 9-node-cluster-m07-9-node-cluster-m08
     templateType: NetworkChaos
     networkChaos:
       action: bandwidth
@@ -19,11 +19,11 @@ spec:
         namespaces:
         - default
         nodes:
-        - 5-node-cluster-m03
+        - 9-node-cluster-m07
       bandwidth:
-        rate: 5226kbps
-        limit: 1000000
-        buffer: 1000000
+        rate: 6925kbps
+        limit: 10000000
+        buffer: 10000
       direction: both
       target:
         mode: all
@@ -31,8 +31,8 @@ spec:
           namespaces:
           - default
           nodes:
-          - 5-node-cluster-m04
-  - name: 5-node-cluster-m03-5-node-cluster-m05
+          - 9-node-cluster-m08
+  - name: 9-node-cluster-m07-9-node-cluster-m09
     templateType: NetworkChaos
     networkChaos:
       action: bandwidth
@@ -41,11 +41,11 @@ spec:
         namespaces:
         - default
         nodes:
-        - 5-node-cluster-m03
+        - 9-node-cluster-m07
       bandwidth:
-        rate: 3899kbps
-        limit: 1000000
-        buffer: 1000000
+        rate: 5095kbps
+        limit: 10000000
+        buffer: 10000
       direction: both
       target:
         mode: all
@@ -53,4 +53,4 @@ spec:
           namespaces:
           - default
           nodes:
-          - 5-node-cluster-m05
+          - 9-node-cluster-m09

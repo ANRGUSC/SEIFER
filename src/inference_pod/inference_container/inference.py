@@ -17,8 +17,9 @@ input_index = interpreter.get_input_details()[0]["index"]
 output_index = interpreter.get_output_details()[0]["index"]
 print("Inference runtime set up")
 
-input_q = queue.Queue(10 ** 5)
-output_q = queue.Queue(10 ** 5)
+# Change queue size based on inference data volume
+input_q = queue.Queue(10)
+output_q = queue.Queue(10)
 
 def run():
     print("Started running inference runtime")
@@ -42,8 +43,9 @@ def inference(in_q: Queue, out_q: Queue):
         interpreter.set_tensor(input_index, inpt)
         interpreter.invoke()
         prediction = interpreter.get_tensor(output_index)
+        print("Got prediction")
 
-        out_q.put(prediction)
+        out_q.put(prediction, block=True)
 
 
 run()

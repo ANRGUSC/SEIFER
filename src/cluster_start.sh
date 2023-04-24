@@ -4,6 +4,19 @@ kubectl delete deployments,jobs --all
 kubectl delete configmap dispatcher-config
 # Make sure that nfs directory exists
 #minikube ssh -n 5-node-cluster "sudo mkdir /var/nfs_backing_pv"
+#num_nodes=9
+#cluster_name="9-node-cluster"
+#minikube ssh -n $cluster_name "sudo mkdir /var/nfs_backing_pv"
+#for ((i=2; i <= num_nodes; i++))
+#do
+#  suffix="m$i"
+#  if [ $i -lt 10 ]
+#  then
+#    suffix="m0$i"
+#  fi
+#  minikube ssh -n "$cluster_name-$suffix" "sudo mkdir /var/nfs_backing_pv"
+#done
+
 kubectl delete pvc nfs-backing-pvc
 kubectl delete pvc nfs
 kubectl delete pv --all

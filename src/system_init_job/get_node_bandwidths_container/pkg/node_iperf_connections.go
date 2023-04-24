@@ -169,6 +169,8 @@ func orchestrateIPerfTasks(ctx context.Context, nodeName string, otherNodes []st
 		fmt.Printf("Connecting to %s\n", connectTo)
 		fmt.Println("Waiting for chaos mesh to activate")
 		test_util.WaitForChaosMeshRunning(ctx, nodeName, connectTo)
+		// Wait 0.5 sec extra to let the TBF rules take effect, just in case
+		time.Sleep(500 * time.Millisecond)
 		fmt.Println("ChaosMesh activated")
 		bandwidth := startConnection(ctx, connectTo)
 		fmt.Printf("Finished job on %s\n", connectTo)
